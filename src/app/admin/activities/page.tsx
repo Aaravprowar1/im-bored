@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CategoryBadge } from "@/components/activity-card";
+import { CategoryBadge } from "@/components/activity-meta";
 import { ArchiveButton, DailyChallengeForm } from "@/components/admin/activity-admin";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { Button } from "@/components/ui/button";

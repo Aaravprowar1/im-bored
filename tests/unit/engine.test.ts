@@ -104,7 +104,7 @@ describe("activity generator", () => {
     const pool = [make("a"), make("b")];
     let previous: string | null = null;
     for (let i = 0; i < 30; i++) {
-      const r = pickActivity(pool, DEFAULT_FILTERS, { previousId: previous });
+      const r: ReturnType<typeof pickActivity<A>> = pickActivity(pool, DEFAULT_FILTERS, { previousId: previous });
       expect(r.kind).toBe("ok");
       if (r.kind === "ok") {
         expect(r.activity.id).not.toBe(previous);

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ActivityMeta, CategoryBadge } from "@/components/activity-card";
+import { ActivityMeta, CategoryBadge } from "@/components/activity-meta";
 import { ModerationActions } from "@/components/admin/moderation-actions";
 import { ModerationBadge, PaymentBadge } from "@/components/submit/status-badges";
 import { Card, Container } from "@/components/ui/card";

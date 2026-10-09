@@ -24,6 +24,10 @@ export const metadata: Metadata = {
   twitter: { card: "summary", title: "im bored.", description: "Get a random activity to do." },
 };
 
+// The header reflects the signed-in user, so every page renders per request.
+// This also guarantees private data is never baked into a static page.
+export const dynamic = "force-dynamic";
+
 export const viewport: Viewport = { themeColor: "#f7f5f0", width: "device-width", initialScale: 1 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

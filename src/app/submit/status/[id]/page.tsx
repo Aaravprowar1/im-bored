@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { CategoryBadge } from "@/components/activity-card";
+import { CategoryBadge } from "@/components/activity-meta";
 import { SubmissionStatus } from "@/components/submit/submission-status";
 import { Container } from "@/components/ui/card";
 import { getSessionUser } from "@/lib/auth/session";

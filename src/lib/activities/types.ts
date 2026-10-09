@@ -119,7 +119,7 @@ export const COST_LABELS: Record<CostType, string> = {
 export const PEOPLE_LABELS: Record<PeopleType, string> = {
   alone: "Alone",
   with_friends: "With friends",
-  either: "Alone or with friends",
+  either: "Solo or group",
 };
 
 /** Default XP by difficulty, used for seeds and approved submissions. */

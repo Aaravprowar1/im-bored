@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Clock, Gauge } from "lucide-react";
-import { CategoryBadge, formatMinutes } from "@/components/activity-card";
+import { CategoryBadge, formatMinutes } from "@/components/activity-meta";
 import { CompleteButton } from "@/components/complete-button";
 import { DailyChallengePanel } from "@/components/daily-challenge-panel";
 import { Card, Container, EmptyState, PageHeading } from "@/components/ui/card";

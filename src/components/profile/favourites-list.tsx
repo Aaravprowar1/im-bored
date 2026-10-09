@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Heart } from "lucide-react";
-import { CategoryBadge, formatMinutes } from "@/components/activity-card";
+import { CategoryBadge, formatMinutes } from "@/components/activity-meta";
 import { EmptyState } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { useFavourites } from "@/components/use-favourites";
@@ -15,16 +15,18 @@ export function FavouritesList({ accountActivities }: { accountActivities: Publi
   const [deviceActivities, setDeviceActivities] = useState<PublicActivity[] | null>(null);
   const isDevice = accountActivities === null;
 
+  // Guest ids load from localStorage after hydration, so fetch whenever the set
+  // contains ids we haven't loaded yet.
+  const idsKey = [...favourites.ids].sort().join(",");
   useEffect(() => {
-    if (!isDevice) return;
-    const ids = [...favourites.ids];
-    if (ids.length === 0) return;
-    api<{ activities: PublicActivity[] }>(`/api/activities?ids=${encodeURIComponent(ids.join(","))}`).then((r) =>
+    if (!isDevice || !idsKey) return;
+    const loaded = new Set((deviceActivities ?? []).map((a) => a.id));
+    if (idsKey.split(",").every((id) => loaded.has(id))) return;
+    api<{ activities: PublicActivity[] }>(`/api/activities?ids=${encodeURIComponent(idsKey)}`).then((r) =>
       setDeviceActivities(r.ok ? r.data.activities : []),
     );
-    // Only load once per mount; removals update the list locally.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDevice]);
+  }, [isDevice, idsKey]);
 
   const source = isDevice ? (favourites.ids.size === 0 ? [] : deviceActivities) : accountActivities;
   const list = source?.filter((a) => favourites.ids.has(a.id)) ?? null;
