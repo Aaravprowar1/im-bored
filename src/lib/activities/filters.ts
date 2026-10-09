@@ -3,7 +3,6 @@ import {
   CATEGORIES,
   COST_TYPES,
   ENERGY_LEVELS,
-  LOCATIONS,
   type Category,
   type CostType,
   type EnergyLevel,
