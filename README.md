@@ -23,7 +23,7 @@ Built with Next.js 16 (App Router), React 19, TypeScript (strict), Tailwind CSS 
 
 Nothing here has been run against a live Supabase project from this repository. The SQL migrations, RLS policies and database functions are tested against real PostgreSQL (PGlite) with a Supabase-like auth emulation. Do a full run against a real project before launch.
 
-The earlier paid version ($1 per suggestion through Stripe Checkout) is paused. Its code is kept at the git tag `paid-submissions-v1`; the payment columns and `payment_events` table stay in the database so no records are lost.
+The earlier paid version ($1 per suggestion through Stripe Checkout) is paused. Its code is kept on the git branch `paid-submissions-v1`; the payment columns and `payment_events` table stay in the database so no records are lost.
 
 ## Run it locally
 
