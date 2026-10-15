@@ -4,7 +4,7 @@
 --    review queue. The paid flow is paused, not erased: the payment columns
 --    and payment_events table stay so any existing records are kept, but the
 --    payment functions are removed and nothing in the app uses them. The paid
---    version of the code is tagged `paid-submissions-v1` in git.
+--    version of the code is on the git branch `paid-submissions-v1`.
 -- 2. Signed-in users can upvote or downvote any published activity, once
 --    each. Counts are kept on the activity row by a trigger.
 
