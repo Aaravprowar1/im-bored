@@ -51,7 +51,7 @@ export const submissionFieldsSchema = z
     }
   });
 
-/** Create request. Any amount, currency, status or user id sent by the client is ignored (stripped). */
+/** Create request. Any status or user id sent by the client is ignored (stripped). */
 export const createSubmissionSchema = submissionFieldsSchema.and(z.object({ client_request_id: uuidSchema }));
 
 export type SubmissionFields = z.infer<typeof submissionFieldsSchema>;
@@ -82,7 +82,7 @@ export const profileUpdateSchema = z.object({
 });
 
 export const moderationSchema = z.object({
-  action: z.enum(["approve", "reject", "request_changes", "refund"]),
+  action: z.enum(["approve", "reject", "request_changes"]),
   notes: z.string().max(2000).optional().nullable(),
 });
 

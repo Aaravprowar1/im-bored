@@ -7,7 +7,7 @@ const schema = z.object({ confirm: z.literal("DELETE") });
 
 /**
  * Deletes the caller's account. Profile, progress, completions and favourites
- * cascade. Submissions keep their payment and review records with the
+ * cascade, and so do votes (the counts update). Submissions keep their review records with the
  * submitter removed (see privacy policy).
  */
 export async function DELETE(request: Request) {

@@ -4,6 +4,7 @@ import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { ToastProvider } from "@/components/toast";
 import { ViewerProvider } from "@/components/viewer-context";
+import { VotesProvider } from "@/components/votes";
 import { publicConfig } from "@/lib/config";
 import { getViewer } from "@/lib/viewer";
 import "./globals.css";
@@ -42,9 +43,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         </a>
         <ViewerProvider viewer={viewer}>
           <ToastProvider>
-            <SiteHeader />
-            <main id="main">{children}</main>
-            <SiteFooter />
+            <VotesProvider>
+              <SiteHeader />
+              <main id="main">{children}</main>
+              <SiteFooter />
+            </VotesProvider>
           </ToastProvider>
         </ViewerProvider>
       </body>

@@ -23,7 +23,7 @@ export async function GET(_request: Request, { params }: Params) {
   return apiOk({ submission: data });
 }
 
-/** Resubmits after a moderator requested changes. No new payment. */
+/** Resubmits after a moderator requested changes. */
 export async function PATCH(request: Request, { params }: Params) {
   const { supabase, user } = await getSessionUser();
   if (!supabase) return apiError("not_configured", "Accounts aren't set up yet.");

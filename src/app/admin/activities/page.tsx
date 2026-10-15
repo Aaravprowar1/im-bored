@@ -1,22 +1,32 @@
 import type { Metadata } from "next";
+import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { CategoryBadge } from "@/components/activity-meta";
 import { ArchiveButton, DailyChallengeForm } from "@/components/admin/activity-admin";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { Button } from "@/components/ui/button";
 import { Card, Container, EmptyState, PageHeading } from "@/components/ui/card";
-import { Input } from "@/components/ui/form";
+import { Input, Select } from "@/components/ui/form";
 import type { Category } from "@/lib/activities/types";
 import { requireAdminPage } from "@/lib/auth/admin-page";
 import { utcDateString } from "@/lib/daily/dates";
 
 export const metadata: Metadata = { title: "Admin: activities", robots: { index: false, follow: false } };
 
-export default async function AdminActivitiesPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+export default async function AdminActivitiesPage({ searchParams }: { searchParams: Promise<{ q?: string; sort?: string }> }) {
   const { supabase } = await requireAdminPage("/admin/activities");
-  const q = ((await searchParams).q ?? "").trim().slice(0, 100);
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim().slice(0, 100);
+  const sort = sp.sort === "downvoted" || sp.sort === "upvoted" ? sp.sort : "title";
   const today = utcDateString();
 
-  let query = supabase.from("activities").select("id,title,category,source,status").eq("status", "published").order("title").limit(50);
+  let query = supabase.from("activities").select("id,title,category,source,status,upvotes,downvotes").eq("status", "published");
+  query =
+    sort === "downvoted"
+      ? query.order("downvotes", { ascending: false }).order("title")
+      : sort === "upvoted"
+        ? query.order("upvotes", { ascending: false }).order("title")
+        : query.order("title");
+  query = query.limit(50);
   if (q) query = query.ilike("title", `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`);
   const [{ data: list }, { data: all }, { data: upcoming }] = await Promise.all([
     query,
@@ -26,7 +36,7 @@ export default async function AdminActivitiesPage({ searchParams }: { searchPara
 
   return (
     <Container className="pt-12 sm:pt-16">
-      <PageHeading title="Activities" intro="Archive published activities if a problem is reported, and schedule daily challenges." />
+      <PageHeading title="Activities" intro="Archive published activities if a problem is reported or people keep voting them down, and schedule daily challenges." />
       <AdminNav active="activities" />
 
       <Card className="p-6">
@@ -43,9 +53,15 @@ export default async function AdminActivitiesPage({ searchParams }: { searchPara
       </Card>
 
       <section className="mt-10">
-        <form action="/admin/activities" className="flex gap-2">
+        <form action="/admin/activities" className="flex flex-wrap gap-2">
           <label htmlFor="aq" className="sr-only">Search activities</label>
           <Input id="aq" name="q" defaultValue={q} placeholder="Search published activities" className="max-w-sm" />
+          <label htmlFor="asort" className="sr-only">Sort</label>
+          <Select id="asort" name="sort" defaultValue={sort} className="max-w-[11rem]">
+            <option value="title">By title</option>
+            <option value="downvoted">Most downvoted</option>
+            <option value="upvoted">Most upvoted</option>
+          </Select>
           <Button type="submit" variant="secondary">Search</Button>
         </form>
         <div className="mt-4">
@@ -60,7 +76,13 @@ export default async function AdminActivitiesPage({ searchParams }: { searchPara
                     <span className="truncate">{a.title}</span>
                     {a.source === "submission" ? <span className="shrink-0 text-xs text-muted">community</span> : null}
                   </span>
-                  <ArchiveButton id={a.id} title={a.title} />
+                  <span className="flex shrink-0 items-center gap-3">
+                    <span className="flex items-center gap-2 text-xs tabular-nums text-muted" aria-label={`${a.upvotes} upvotes, ${a.downvotes} downvotes`}>
+                      <ThumbsUp className="size-3.5" aria-hidden /> {a.upvotes}
+                      <ThumbsDown className="size-3.5" aria-hidden /> {a.downvotes}
+                    </span>
+                    <ArchiveButton id={a.id} title={a.title} />
+                  </span>
                 </li>
               ))}
             </ul>

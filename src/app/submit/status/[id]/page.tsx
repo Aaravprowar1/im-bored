@@ -5,21 +5,13 @@ import { CategoryBadge } from "@/components/activity-meta";
 import { SubmissionStatus } from "@/components/submit/submission-status";
 import { Container } from "@/components/ui/card";
 import { getSessionUser } from "@/lib/auth/session";
-import { isServiceRoleConfigured, isStripeConfigured } from "@/lib/server-config";
 import { OWNER_SUBMISSION_COLUMNS, type OwnerSubmission } from "@/lib/submissions/types";
 import { uuidSchema } from "@/lib/validation";
 
 export const metadata: Metadata = { title: "Submission status", robots: { index: false } };
 
-export default async function SubmissionStatusPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ id: string }>;
-  searchParams: Promise<{ checkout?: string }>;
-}) {
+export default async function SubmissionStatusPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { checkout } = await searchParams;
   const { supabase, user } = await getSessionUser();
   if (!supabase) notFound();
   if (!user) redirect(`/login?next=${encodeURIComponent(`/submit/status/${id}`)}`);
@@ -44,12 +36,7 @@ export default async function SubmissionStatusPage({
         <p className="mt-2 whitespace-pre-line text-muted">{submission.description}</p>
       </div>
       <div className="mt-8">
-        <SubmissionStatus
-          initial={submission}
-          returnedFrom={checkout === "success" ? "success" : checkout === "cancel" ? "cancel" : null}
-          checkoutError={checkout === "error"}
-          paymentsEnabled={isStripeConfigured() && isServiceRoleConfigured()}
-        />
+        <SubmissionStatus submission={submission} />
       </div>
     </Container>
   );

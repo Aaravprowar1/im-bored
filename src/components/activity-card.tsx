@@ -3,6 +3,7 @@
 import { Check, Heart, Loader2, RefreshCw, ShieldAlert, Sparkles } from "lucide-react";
 import { ActivityMeta, CategoryBadge } from "@/components/activity-meta";
 import { Button } from "@/components/ui/button";
+import { VoteButtons } from "@/components/votes";
 import type { PublicActivity } from "@/lib/activities/types";
 import { cn } from "@/lib/cn";
 
@@ -62,7 +63,12 @@ export function ActivityCard({
         </p>
       ) : null}
 
-      <div className="mt-6 border-t border-line pt-5">
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <VoteButtons activity={activity} size="sm" />
+        <span className="text-xs text-muted">Good one? Vote it up or down.</span>
+      </div>
+
+      <div className="mt-5 border-t border-line pt-5">
         <ActivityMeta activity={activity} />
       </div>
 

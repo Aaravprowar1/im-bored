@@ -9,7 +9,7 @@ import {
   LOCATIONS,
   PEOPLE_TYPES,
 } from "@/lib/activities/types";
-import { PAYMENT_STATUSES, MODERATION_STATUSES } from "@/lib/submissions/state";
+import { MODERATION_STATUSES } from "@/lib/submissions/state";
 
 const ALICE = "00000000-0000-4000-8000-00000000000a";
 const BOB = "00000000-0000-4000-8000-00000000000b";
@@ -47,7 +47,6 @@ describe("schema", () => {
     expect(await constraintFor("activities", "cost_type")).toEqual([...COST_TYPES].sort());
     expect(await constraintFor("activities", "people_type")).toEqual([...PEOPLE_TYPES].sort());
     expect(await constraintFor("activities", "status")).toEqual([...ACTIVITY_STATUSES].sort());
-    expect(await constraintFor("activity_submissions", "payment_status")).toEqual([...PAYMENT_STATUSES].sort());
     expect(await constraintFor("activity_submissions", "moderation_status")).toEqual([...MODERATION_STATUSES].sort());
   });
 
@@ -326,18 +325,8 @@ async function createSubmission(user: string, requestId = "22222222-2222-4222-82
   return r.rows[0].id;
 }
 
-async function payEvent(eventId: string, submissionId: string | null, session: string | null, to: string | null, from: string[], amount = 100, currency = "usd", pi: string | null = "pi_1") {
-  const r = await as(db, "service_role", null, () =>
-    db.query<{ outcome: string }>(
-      "select public.apply_payment_event($1, 'checkout.session.completed', false, $2, $3, $4, $5, $6, $7, $8) outcome",
-      [eventId, submissionId, session, pi, amount, currency, to, from],
-    ),
-  );
-  return r.rows[0].outcome;
-}
-
-describe("submissions and payments", () => {
-  it("creation is idempotent per request and private to the owner", async () => {
+describe("free submissions", () => {
+  it("creation is idempotent per request, free, and private to the owner", async () => {
     const id1 = await createSubmission(ALICE);
     const id2 = await createSubmission(ALICE);
     expect(id1).toBe(id2);
@@ -347,80 +336,33 @@ describe("submissions and payments", () => {
     expect(bobSees.rows).toHaveLength(0);
     const anon = as(db, "anon", null, () => db.query("select * from public.activity_submissions"));
     await expectError(anon, /permission denied/);
-    const row = await db.query<{ payment_status: string; moderation_status: string; amount_cents: number; currency: string }>(
-      "select payment_status, moderation_status, amount_cents, currency from public.activity_submissions where id = $1",
+    const row = await db.query<{ payment_status: string; moderation_status: string; amount_cents: number }>(
+      "select payment_status, moderation_status, amount_cents from public.activity_submissions where id = $1",
       [id1],
     );
-    expect(row.rows[0]).toEqual({ payment_status: "unpaid", moderation_status: "pending_payment", amount_cents: 100, currency: "usd" });
+    expect(row.rows[0]).toEqual({ payment_status: "not_required", moderation_status: "pending_review", amount_cents: 0 });
   });
 
-  it("users cannot change payment or moderation state directly", async () => {
+  it("users cannot change moderation state directly, and payment functions are gone", async () => {
     const id = await createSubmission(ALICE);
     await expectError(
       as(db, "authenticated", ALICE, () =>
-        db.query("update public.activity_submissions set payment_status = 'paid' where id = $1", [id]),
+        db.query("update public.activity_submissions set moderation_status = 'approved' where id = $1", [id]),
       ),
       /permission denied/,
     );
+    const fns = await db.query<{ n: number }>(
+      "select count(*)::int n from pg_proc where proname in ('apply_payment_event', 'mark_refund_pending')",
+    );
+    expect(fns.rows[0].n).toBe(0);
     await expectError(
-      as(db, "authenticated", ALICE, () =>
-        db.query("select public.apply_payment_event('evt_x', 't', false, $1, null, null, 100, 'usd', 'paid', array['unpaid'])", [id]),
-      ),
-      /permission denied/,
-    );
-  });
-
-  it("the database refuses any amount other than 100 USD cents", async () => {
-    const id = await createSubmission(ALICE);
-    await expectError(db.query("update public.activity_submissions set amount_cents = 1000 where id = $1", [id]), /check constraint/);
-    await expectError(db.query("update public.activity_submissions set currency = 'inr' where id = $1", [id]), /check constraint/);
-  });
-
-  it("applies a verified payment once and moves it to review, not publication", async () => {
-    const id = await createSubmission(ALICE);
-    await db.query(
-      "update public.activity_submissions set payment_status = 'checkout_created', stripe_checkout_session_id = 'cs_1' where id = $1",
-      [id],
-    );
-    expect(await payEvent("evt_1", id, "cs_1", "paid", ["checkout_created", "unpaid"])).toBe("applied");
-    expect(await payEvent("evt_1", id, "cs_1", "paid", ["checkout_created", "unpaid"])).toBe("duplicate");
-    const row = await db.query<{ payment_status: string; moderation_status: string; published_activity_id: string | null }>(
-      "select payment_status, moderation_status, published_activity_id from public.activity_submissions where id = $1",
-      [id],
-    );
-    expect(row.rows[0]).toEqual({ payment_status: "paid", moderation_status: "pending_review", published_activity_id: null });
-    const events = await db.query<{ n: number }>("select count(*)::int n from public.payment_events");
-    expect(events.rows[0].n).toBe(1);
-  });
-
-  it("rejects mismatched sessions and amounts", async () => {
-    const id = await createSubmission(ALICE);
-    await db.query(
-      "update public.activity_submissions set payment_status = 'checkout_created', stripe_checkout_session_id = 'cs_1' where id = $1",
-      [id],
-    );
-    expect(await payEvent("evt_a", id, "cs_other", "paid", ["checkout_created"])).toBe("session_mismatch");
-    expect(await payEvent("evt_b", id, "cs_1", "paid", ["checkout_created"], 5000)).toBe("amount_mismatch");
-    expect(await payEvent("evt_c", id, "cs_1", "paid", ["checkout_created"], 100, "inr")).toBe("amount_mismatch");
-    const row = await db.query<{ payment_status: string }>("select payment_status from public.activity_submissions where id = $1", [id]);
-    expect(row.rows[0].payment_status).toBe("checkout_created");
-  });
-
-  it("unpaid submissions cannot be approved, and only admins can moderate", async () => {
-    const id = await createSubmission(ALICE);
-    await expectError(
-      as(db, "authenticated", ADMIN, () => db.query("select public.moderate_submission($1, 'approve', null)", [id])),
-      /payment_not_verified/,
-    );
-    await expectError(
-      db.query("update public.activity_submissions set moderation_status = 'approved' where id = $1", [id]),
+      db.query("update public.activity_submissions set moderation_status = 'pending_payment' where id = $1", [id]),
       /check constraint/,
     );
-    await db.query(
-      "update public.activity_submissions set payment_status = 'checkout_created', stripe_checkout_session_id = 'cs_2' where id = $1",
-      [id],
-    );
-    await payEvent("evt_2", id, "cs_2", "paid", ["checkout_created"]);
+  });
+
+  it("only admins can moderate, and approval publishes the activity", async () => {
+    const id = await createSubmission(ALICE);
     await expectError(
       as(db, "authenticated", ALICE, () => db.query("select public.moderate_submission($1, 'approve', null)", [id])),
       /not_admin/,
@@ -433,17 +375,19 @@ describe("submissions and payments", () => {
     );
     expect(r.rows[0].r.moderation_status).toBe("approved");
     const published = await as(db, "anon", null, () =>
-      db.query<{ title: string }>("select title from public.activities where id = $1", [r.rows[0].r.activity_id]),
+      db.query<{ title: string; upvotes: number }>("select title, upvotes from public.activities where id = $1", [r.rows[0].r.activity_id]),
     );
-    expect(published.rows[0].title).toBe("A good test idea");
+    expect(published.rows[0]).toEqual({ title: "A good test idea", upvotes: 0 });
+    await expectError(
+      as(db, "authenticated", ADMIN, () => db.query("select public.moderate_submission($1, 'approve', null)", [id])),
+      /invalid_transition/,
+    );
     const audit = await db.query<{ action: string; actor_id: string }>("select action, actor_id from public.moderation_audit_log");
     expect(audit.rows).toEqual([{ action: "approve", actor_id: ADMIN }]);
   });
 
   it("request changes, resubmit and reject keep an audit trail", async () => {
     const id = await createSubmission(ALICE);
-    await db.query("update public.activity_submissions set payment_status = 'checkout_created', stripe_checkout_session_id = 'cs_3' where id = $1", [id]);
-    await payEvent("evt_3", id, "cs_3", "paid", ["checkout_created"]);
     await expectError(
       as(db, "authenticated", ADMIN, () => db.query("select public.moderate_submission($1, 'request_changes', '')", [id])),
       /reason_required/,
@@ -459,11 +403,11 @@ describe("submissions and payments", () => {
       db.query("select public.resubmit_submission($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)", [id, "Shorter idea", ...SUBMISSION_ARGS.slice(1)]),
     );
     await as(db, "authenticated", ADMIN, () => db.query("select public.moderate_submission($1, 'reject', 'Too similar to an existing activity')", [id]));
-    const row = await db.query<{ moderation_status: string; payment_status: string; review_notes: string }>(
-      "select moderation_status, payment_status, review_notes from public.activity_submissions where id = $1",
+    const row = await db.query<{ moderation_status: string; title: string; review_notes: string }>(
+      "select moderation_status, title, review_notes from public.activity_submissions where id = $1",
       [id],
     );
-    expect(row.rows[0]).toEqual({ moderation_status: "rejected", payment_status: "paid", review_notes: "Too similar to an existing activity" });
+    expect(row.rows[0]).toEqual({ moderation_status: "rejected", title: "Shorter idea", review_notes: "Too similar to an existing activity" });
     const audit = await db.query<{ action: string }>("select action from public.moderation_audit_log order by created_at, action");
     expect(audit.rows.map((r) => r.action).sort()).toEqual(["reject", "request_changes", "resubmit"]);
   });
@@ -473,5 +417,78 @@ describe("submissions and payments", () => {
       await createSubmission(BOB, `33333333-3333-4333-8333-${String(i).padStart(12, "0")}`);
     }
     await expectError(createSubmission(BOB, "33333333-3333-4333-8333-999999999999"), /rate_limited/);
+  });
+});
+
+describe("votes", () => {
+  const vote = (user: string, activityId: string, value: number) =>
+    as(db, "authenticated", user, () =>
+      db.query<{ r: { upvotes: number; downvotes: number; my_vote: number } }>("select public.cast_vote($1, $2) r", [activityId, value]),
+    ).then((res) => res.rows[0].r);
+  const counts = async (activityId: string) =>
+    (await db.query<{ upvotes: number; downvotes: number }>("select upvotes, downvotes from public.activities where id = $1", [activityId])).rows[0];
+
+  it("counts one vote per user, lets them switch or remove it", async () => {
+    const a = await firstPublishedActivity(db);
+    expect(await vote(ALICE, a.id, 1)).toEqual({ upvotes: 1, downvotes: 0, my_vote: 1 });
+    expect(await vote(ALICE, a.id, 1)).toEqual({ upvotes: 1, downvotes: 0, my_vote: 1 });
+    expect(await vote(BOB, a.id, -1)).toEqual({ upvotes: 1, downvotes: 1, my_vote: -1 });
+    expect(await vote(ALICE, a.id, -1)).toEqual({ upvotes: 0, downvotes: 2, my_vote: -1 });
+    expect(await vote(BOB, a.id, 0)).toEqual({ upvotes: 0, downvotes: 1, my_vote: 0 });
+    expect(await counts(a.id)).toEqual({ upvotes: 0, downvotes: 1 });
+  });
+
+  it("concurrent votes from many users keep exact counts", async () => {
+    const a = await firstPublishedActivity(db);
+    const users = Array.from({ length: 6 }, (_, i) => `00000000-0000-4000-8000-0000000001${String(i).padStart(2, "0")}`);
+    for (const u of users) await createUser(db, u);
+    for (const [i, u] of users.entries()) await vote(u, a.id, i % 3 === 0 ? -1 : 1);
+    expect(await counts(a.id)).toEqual({ upvotes: 4, downvotes: 2 });
+  });
+
+  it("requires sign-in, a valid value and a published activity", async () => {
+    const a = await firstPublishedActivity(db);
+    await expectError(
+      as(db, "anon", null, () => db.query("select public.cast_vote($1, 1)", [a.id])),
+      /permission denied/,
+    );
+    await expectError(vote(ALICE, a.id, 5), /invalid_vote/);
+    await expectError(vote(ALICE, "00000000-0000-4000-8000-000000000999", 1), /activity_not_found/);
+    await db.query("update public.activities set status = 'archived' where id = $1", [a.id]);
+    await expectError(vote(ALICE, a.id, 1), /activity_not_found/);
+  });
+
+  it("keeps votes private and blocks direct writes to votes or counts", async () => {
+    const a = await firstPublishedActivity(db);
+    await vote(ALICE, a.id, 1);
+    const bobSees = await as(db, "authenticated", BOB, () => db.query("select * from public.activity_votes"));
+    expect(bobSees.rows).toHaveLength(0);
+    const aliceSees = await as(db, "authenticated", ALICE, () => db.query<{ value: number }>("select value from public.activity_votes"));
+    expect(aliceSees.rows).toEqual([{ value: 1 }]);
+    await expectError(
+      as(db, "authenticated", ALICE, () =>
+        db.query("insert into public.activity_votes (user_id, activity_id, value) values ($1, $2, 1)", [BOB, a.id]),
+      ),
+      /permission denied/,
+    );
+    await expectError(
+      as(db, "authenticated", ALICE, () => db.query("update public.activities set upvotes = 999 where id = $1", [a.id])),
+      /permission denied/,
+    );
+    await expectError(as(db, "anon", null, () => db.query("select * from public.activity_votes")), /permission denied/);
+  });
+
+  it("removes a deleted account's votes from the counts", async () => {
+    const a = await firstPublishedActivity(db);
+    await vote(ALICE, a.id, 1);
+    await vote(BOB, a.id, -1);
+    await db.query("delete from auth.users where id = $1", [BOB]);
+    expect(await counts(a.id)).toEqual({ upvotes: 1, downvotes: 0 });
+  });
+
+  it("suspended accounts cannot vote", async () => {
+    const a = await firstPublishedActivity(db);
+    await db.query("update public.profiles set is_suspended = true where id = $1", [ALICE]);
+    await expectError(vote(ALICE, a.id, 1), /account_suspended/);
   });
 });

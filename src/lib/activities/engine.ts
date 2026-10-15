@@ -6,7 +6,9 @@ import type { ActivityStatus, PublicActivity } from "./types";
  * shared between the API (database-backed pool) and development mode (seed pool).
  */
 
-type Candidate = PublicActivity & { status?: ActivityStatus };
+// Vote totals are optional so the bundled seed list (which has none) can be used directly.
+type Candidate = Omit<PublicActivity, "upvotes" | "downvotes"> &
+  Partial<Pick<PublicActivity, "upvotes" | "downvotes">> & { status?: ActivityStatus };
 
 /** Applies every filter except Chaos Mode. Unpublished records never pass. */
 export function matchesFilters(activity: Candidate, filters: ActivityFilters): boolean {
@@ -29,7 +31,7 @@ export type PickResult<T> =
   | { kind: "empty" };
 
 /**
- * Picks a random eligible activity.
+ * Picks a random eligible activity, weighted by votes (see voteWeight).
  *
  * Chaos Mode narrows the pool to chaos activities when any match the other
  * filters. When none do, it falls back to the regular eligible pool and sets
@@ -59,8 +61,30 @@ export function pickActivity<T extends Candidate>(
     if (withoutPrevious.length > 0) candidates = withoutPrevious;
   }
 
-  const index = Math.min(candidates.length - 1, Math.floor(random() * candidates.length));
-  return { kind: "ok", activity: candidates[index], chaosFallback };
+  return { kind: "ok", activity: weightedChoice(candidates, random), chaosFallback };
+}
+
+/**
+ * How likely an activity is to be picked, from its votes. The share of
+ * upvotes is smoothed (one imaginary vote each way), so a single vote can't
+ * swing it much. An unrated activity weighs 0.7; a well-loved one approaches
+ * 1.2 and a disliked one 0.2, so it still comes up now and then.
+ */
+export function voteWeight(activity: { upvotes?: number; downvotes?: number }): number {
+  const up = Math.max(0, activity.upvotes ?? 0);
+  const down = Math.max(0, activity.downvotes ?? 0);
+  return 0.2 + (up + 1) / (up + down + 2);
+}
+
+function weightedChoice<T extends Candidate>(candidates: readonly T[], random: () => number): T {
+  const weights = candidates.map(voteWeight);
+  const total = weights.reduce((sum, w) => sum + w, 0);
+  let target = random() * total;
+  for (let i = 0; i < candidates.length; i++) {
+    target -= weights[i];
+    if (target < 0) return candidates[i];
+  }
+  return candidates[candidates.length - 1];
 }
 
 export const NO_MATCH_MESSAGE = "No activities match those filters. Try widening your search.";

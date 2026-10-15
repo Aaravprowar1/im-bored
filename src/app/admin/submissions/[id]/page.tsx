@@ -3,11 +3,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActivityMeta, CategoryBadge } from "@/components/activity-meta";
 import { ModerationActions } from "@/components/admin/moderation-actions";
-import { ModerationBadge, PaymentBadge } from "@/components/submit/status-badges";
+import { ModerationBadge } from "@/components/submit/status-badges";
 import { Card, Container } from "@/components/ui/card";
 import type { PublicActivity } from "@/lib/activities/types";
 import { requireAdminPage } from "@/lib/auth/admin-page";
-import { isServiceRoleConfigured, isStripeConfigured } from "@/lib/server-config";
 import type { Submission } from "@/lib/submissions/types";
 import { uuidSchema } from "@/lib/validation";
 
@@ -20,20 +19,18 @@ export default async function AdminSubmissionPage({ params }: { params: Promise<
   const { supabase } = await requireAdminPage(`/admin/submissions/${id}`);
   if (!uuidSchema.safeParse(id).success) notFound();
 
-  const [{ data: sub }, { data: events }, { data: audit }] = await Promise.all([
+  const [{ data: sub }, { data: audit }] = await Promise.all([
     supabase.from("activity_submissions").select("*").eq("id", id).maybeSingle(),
-    supabase.from("payment_events").select("stripe_event_id,event_type,outcome,amount_cents,currency,livemode,received_at").eq("submission_id", id).order("received_at", { ascending: false }),
     supabase.from("moderation_audit_log").select("action,from_status,to_status,notes,created_at,actor_id").eq("submission_id", id).order("created_at", { ascending: false }),
   ]);
   if (!sub) notFound();
-  const s = sub as Submission & { stripe_payment_intent_id: string | null; reviewer_id: string | null; refunded_at: string | null };
+  const s = sub as Submission;
 
   return (
     <Container className="max-w-4xl pt-12 sm:pt-16">
       <Link href="/admin" className="text-sm text-muted hover:text-ink">← Back to queue</Link>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <CategoryBadge category={s.category} />
-        <PaymentBadge status={s.payment_status} />
         <ModerationBadge status={s.moderation_status} />
       </div>
       <h1 className="mt-3 font-serif text-4xl leading-tight sm:text-5xl">{s.title}</h1>
@@ -50,35 +47,13 @@ export default async function AdminSubmissionPage({ params }: { params: Promise<
       <Card className="mt-4 p-6">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted">Moderate</p>
         <div className="mt-4">
-          <ModerationActions id={s.id} paymentStatus={s.payment_status} moderationStatus={s.moderation_status} refundsEnabled={isStripeConfigured() && isServiceRoleConfigured()} />
+          <ModerationActions id={s.id} moderationStatus={s.moderation_status} />
         </div>
         {s.review_notes ? <p className="mt-4 text-sm text-muted">Current note to submitter: {s.review_notes}</p> : null}
         {s.published_activity_id ? <p className="mt-2 text-sm text-muted">Published as activity {s.published_activity_id} on {fmt(s.published_at)}.</p> : null}
       </Card>
 
-      <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <Card className="p-6">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted">Payment (verified by webhook)</p>
-          <dl className="mt-3 space-y-1.5 text-sm">
-            <Row k="Status" v={s.payment_status} />
-            <Row k="Amount" v={`${(s.amount_cents / 100).toFixed(2)} ${s.currency.toUpperCase()}`} />
-            <Row k="Paid" v={fmt(s.paid_at)} />
-            <Row k="Refunded" v={fmt(s.refunded_at)} />
-            <Row k="Payment intent" v={s.stripe_payment_intent_id ?? "—"} />
-            <Row k="Checkout attempts" v={String(s.checkout_attempts)} />
-          </dl>
-          <p className="mt-4 text-xs font-medium uppercase tracking-[0.12em] text-muted">Stripe events</p>
-          {events && events.length ? (
-            <ul className="mt-2 space-y-1 text-xs">
-              {events.map((e) => (
-                <li key={e.stripe_event_id} className="flex justify-between gap-2">
-                  <span className="truncate">{e.event_type}{e.livemode ? "" : " (test)"}</span>
-                  <span className={e.outcome === "applied" ? "text-success" : "text-muted"}>{e.outcome}</span>
-                </li>
-              ))}
-            </ul>
-          ) : <p className="mt-2 text-xs text-muted">None received.</p>}
-        </Card>
+      <div className="mt-4">
         <Card className="p-6">
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted">Audit trail</p>
           {audit && audit.length ? (

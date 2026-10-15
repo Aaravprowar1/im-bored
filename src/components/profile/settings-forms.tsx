@@ -126,7 +126,7 @@ export function DangerZone() {
       </div>
       <Dialog open={open} onClose={() => setOpen(false)} title="Delete your account?">
         <p className="text-sm leading-relaxed text-muted">
-          This permanently deletes your profile, XP, completions and favourites. Paid submissions keep their payment and review records without your name, as described in the privacy policy. This can&apos;t be undone.
+          This permanently deletes your profile, XP, completions and favourites. Activities you suggested keep their review records without your name, as described in the privacy policy. This can&apos;t be undone.
         </p>
         {error ? <Notice tone="error" className="mt-4">{error}</Notice> : null}
         <Field id="confirm-delete" label='Type "DELETE" to confirm' className="mt-4">

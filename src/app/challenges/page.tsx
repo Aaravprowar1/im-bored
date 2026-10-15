@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Clock, Gauge } from "lucide-react";
 import { CategoryBadge, formatMinutes } from "@/components/activity-meta";
+import { VoteButtons } from "@/components/votes";
 import { CompleteButton } from "@/components/complete-button";
 import { DailyChallengePanel } from "@/components/daily-challenge-panel";
 import { Card, Container, EmptyState, PageHeading } from "@/components/ui/card";
@@ -109,6 +110,7 @@ export default async function ChallengesPage({ searchParams }: { searchParams: S
                     </div>
                     <h3 className="mt-4 font-serif text-2xl leading-tight">{a.title}</h3>
                     <p className="mt-2 text-sm leading-relaxed text-muted">{a.description}</p>
+                    <VoteButtons activity={a} size="sm" className="mt-4" />
                     <div className="mt-auto flex items-center justify-between gap-3 pt-5">
                       <p className="flex items-center gap-3 text-xs text-muted">
                         <span className="flex items-center gap-1"><Clock className="size-3.5" aria-hidden /> {formatMinutes(a.duration_minutes)}</span>

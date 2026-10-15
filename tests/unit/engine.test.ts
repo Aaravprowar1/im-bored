@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterActivities, matchesFilters, pickActivity } from "@/lib/activities/engine";
+import { filterActivities, matchesFilters, pickActivity, voteWeight } from "@/lib/activities/engine";
 import { DEFAULT_FILTERS, parseFilters, type ActivityFilters } from "@/lib/activities/filters";
 import { SEED_ACTIVITIES } from "@/lib/activities/seed-data";
 import type { ActivityStatus, PublicActivity } from "@/lib/activities/types";
@@ -22,6 +22,8 @@ function make(id: string, patch: Partial<A> = {}): A {
     is_chaos: false,
     is_featured: false,
     safety_note: null,
+    upvotes: 0,
+    downvotes: 0,
     status: "published",
     ...patch,
   };
@@ -151,5 +153,37 @@ describe("seed library", () => {
       expect(a.duration_minutes).toBeGreaterThan(0);
       expect(Number.isInteger(a.xp_reward) && a.xp_reward >= 0).toBe(true);
     }
+  });
+});
+
+describe("vote weighting", () => {
+  it("favours upvoted activities without ever ruling out downvoted ones", () => {
+    expect(voteWeight({ upvotes: 0, downvotes: 0 })).toBeCloseTo(0.7);
+    expect(voteWeight({})).toBeCloseTo(0.7);
+    expect(voteWeight({ upvotes: 50, downvotes: 0 })).toBeGreaterThan(1.15);
+    expect(voteWeight({ upvotes: 0, downvotes: 50 })).toBeLessThan(0.25);
+    expect(voteWeight({ upvotes: 0, downvotes: 50 })).toBeGreaterThan(0.2);
+    // One vote barely moves an activity.
+    expect(voteWeight({ upvotes: 1, downvotes: 0 })).toBeCloseTo(0.2 + 2 / 3);
+  });
+
+  it("picks in proportion to the weights with the injected random source", () => {
+    const loved = make("loved", { upvotes: 98, downvotes: 0 }); // weight 1.19
+    const hated = make("hated", { upvotes: 0, downvotes: 98 }); // weight 0.21
+    const pool = [hated, loved];
+    const total = voteWeight(hated) + voteWeight(loved);
+    const share = voteWeight(hated) / total;
+    expect(pickActivity(pool, DEFAULT_FILTERS, { random: () => share - 0.001 })).toMatchObject({ activity: { id: "hated" } });
+    expect(pickActivity(pool, DEFAULT_FILTERS, { random: () => share + 0.001 })).toMatchObject({ activity: { id: "loved" } });
+
+    let lovedCount = 0;
+    let seed = 1;
+    const rng = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 4000; i++) {
+      const r = pickActivity(pool, DEFAULT_FILTERS, { random: rng });
+      if (r.kind === "ok" && r.activity.id === "loved") lovedCount++;
+    }
+    expect(lovedCount / 4000).toBeGreaterThan(0.78);
+    expect(lovedCount / 4000).toBeLessThan(0.92);
   });
 });

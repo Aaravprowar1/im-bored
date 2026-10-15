@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Lock } from "lucide-react";
+import { Loader2, Send } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Notice } from "@/components/ui/card";
 import { EMPTY_DRAFT, SubmissionFields, type SubmissionDraft } from "@/components/submit/submission-fields";
@@ -11,9 +11,9 @@ import { fieldErrors, submissionFieldsSchema } from "@/lib/validation";
 
 const DRAFT_KEY = "imbored:submission-draft:v1";
 
-type Stage = "editing" | "saving" | "redirecting";
+type Stage = "editing" | "saving";
 
-export function SubmitForm({ signedIn, paymentsEnabled }: { signedIn: boolean; paymentsEnabled: boolean }) {
+export function SubmitForm({ signedIn }: { signedIn: boolean }) {
   const router = useRouter();
   const [draft, setDraft] = useState<SubmissionDraft>(EMPTY_DRAFT);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -61,7 +61,7 @@ export function SubmitForm({ signedIn, paymentsEnabled }: { signedIn: boolean; p
       return;
     }
     if (!agreed) {
-      setErrors({ agree: "Please confirm you understand the fee and review terms." });
+      setErrors({ agree: "Please confirm this is your own idea and follows the rules." });
       return;
     }
     setStage("saving");
@@ -80,21 +80,7 @@ export function SubmitForm({ signedIn, paymentsEnabled }: { signedIn: boolean; p
     } catch {
       /* ignore */
     }
-    const id = created.data.id;
-    if (!paymentsEnabled) {
-      router.push(`/submit/status/${id}`);
-      return;
-    }
-    const checkout = await api<{ url: string }>("/api/payments/create-checkout-session", {
-      method: "POST",
-      body: JSON.stringify({ submissionId: id }),
-    });
-    if (!checkout.ok) {
-      router.push(`/submit/status/${id}?checkout=error`);
-      return;
-    }
-    setStage("redirecting");
-    window.location.assign(checkout.data.url);
+    router.push(`/submit/status/${created.data.id}`);
   }
 
   return (
@@ -118,7 +104,7 @@ export function SubmitForm({ signedIn, paymentsEnabled }: { signedIn: boolean; p
           aria-describedby={errors.agree ? "agree-error" : undefined}
         />
         <span>
-          I understand the <strong>$1.00 USD</strong> fee pays for a moderator to review this activity. It does not guarantee approval or publication.
+          This is my own idea and it follows the submission rules. I understand a moderator reviews it first, and approval isn&apos;t guaranteed.
           {errors.agree ? <span id="agree-error" className="mt-1 block text-danger">{errors.agree}</span> : null}
         </span>
       </label>
@@ -127,11 +113,11 @@ export function SubmitForm({ signedIn, paymentsEnabled }: { signedIn: boolean; p
         <Button type="submit" size="lg" className="w-full sm:w-auto" disabled={stage !== "editing"}>
           {stage === "editing" ? (
             <>
-              <Lock className="size-4" aria-hidden /> {paymentsEnabled ? "Continue to pay $1.00 USD" : "Save submission"}
+              <Send className="size-4" aria-hidden /> Send for review
             </>
           ) : (
             <>
-              <Loader2 className="size-4 animate-spin" aria-hidden /> {stage === "saving" ? "Saving…" : "Opening secure checkout…"}
+              <Loader2 className="size-4 animate-spin" aria-hidden /> Sending…
             </>
           )}
         </Button>
@@ -143,9 +129,6 @@ export function SubmitForm({ signedIn, paymentsEnabled }: { signedIn: boolean; p
           <p className="text-sm text-muted">Your draft is kept in this tab while you sign in.</p>
         </div>
       )}
-      {paymentsEnabled ? (
-        <p className="text-xs text-muted">Payment is handled by Stripe Checkout. We never see or store your card details.</p>
-      ) : null}
     </form>
   );
 }

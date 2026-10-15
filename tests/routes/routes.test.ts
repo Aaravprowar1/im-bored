@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import Stripe from "stripe";
 import { fakeSupabase } from "./fake-supabase";
 
 const state: { server: ReturnType<typeof fakeSupabase> | null; admin: ReturnType<typeof fakeSupabase> | null } = { server: null, admin: null };
@@ -9,20 +8,6 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: async () => state.server?.client ?? null }));
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => state.admin?.client ?? null }));
 
-const createSession = vi.fn(async () => ({ id: "cs_1", url: "https://checkout.stripe.com/c/pay/cs_1", expires_at: 2_000_000_000 }));
-vi.mock("@/lib/payments/stripe", async () => {
-  const real = new (await import("stripe")).default("sk_test_dummy");
-  return {
-    getStripe: () => ({
-      checkout: { sessions: { create: createSession, retrieve: vi.fn() } },
-      refunds: { create: vi.fn() },
-      webhooks: real.webhooks,
-    }),
-  };
-});
-
-process.env.STRIPE_SECRET_KEY = "sk_test_dummy";
-process.env.STRIPE_WEBHOOK_SECRET = "whsec_route_test";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key-for-tests-only";
 
 const USER = { id: "11111111-1111-4111-8111-111111111111", email: "u@example.test" };
@@ -36,7 +21,6 @@ const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 beforeEach(async () => {
   state.server = null;
   state.admin = null;
-  createSession.mockClear();
   (await import("@/lib/rate-limit")).resetRateLimits();
 });
 
@@ -107,14 +91,27 @@ describe("submissions", () => {
     expect((await POST(new Request("http://x", json(body)))).status).toBe(401);
   });
 
-  it("rejects invalid submissions before anything is stored or charged", async () => {
+  it("rejects invalid submissions before anything is stored", async () => {
     state.server = fakeSupabase({ user: USER });
     const { POST } = await import("@/app/api/submissions/route");
     const res = await POST(new Request("http://x", json({ ...body, title: "" })));
     expect(res.status).toBe(400);
     expect((await res.json()).error.fields.title).toBeTruthy();
     expect(state.server.rpc).not.toHaveBeenCalled();
-    expect(createSession).not.toHaveBeenCalled();
+  });
+
+  it("stores a valid submission for free, ignoring any status or price in the body", async () => {
+    state.server = fakeSupabase({ user: USER, rpc: { create_submission: { data: SUB } } });
+    const { POST } = await import("@/app/api/submissions/route");
+    const res = await POST(new Request("http://x", json({ ...body, moderation_status: "approved", amount_cents: 0, submitter_id: OTHER })));
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ id: SUB });
+    const [fn, args] = state.server.rpc.mock.calls[0] as unknown as [string, Record<string, unknown>];
+    expect(fn).toBe("create_submission");
+    expect(Object.keys(args).sort()).toEqual([
+      "p_category", "p_client_request_id", "p_cost_type", "p_description", "p_difficulty",
+      "p_duration_minutes", "p_energy_level", "p_location", "p_people_type", "p_title",
+    ]);
   });
 
   it("does not return another user's submission", async () => {
@@ -124,43 +121,39 @@ describe("submissions", () => {
   });
 });
 
-describe("checkout endpoint", () => {
-  const ownSubmission = {
-    id: SUB,
-    submitter_id: USER.id,
-    title: "x",
-    payment_status: "unpaid",
-    moderation_status: "pending_payment",
-    stripe_checkout_session_id: null,
-    checkout_expires_at: null,
-    checkout_attempts: 0,
-  };
-
-  it("requires authentication", async () => {
+describe("vote endpoint", () => {
+  it("explains when accounts are not configured, and requires sign-in", async () => {
+    const { POST } = await import("@/app/api/activities/[id]/vote/route");
+    expect((await POST(new Request("http://x", json({ value: 1 })), ctx(ACTIVITY))).status).toBe(503);
     state.server = fakeSupabase({ user: null });
-    state.admin = fakeSupabase({});
-    const { POST } = await import("@/app/api/payments/create-checkout-session/route");
-    expect((await POST(new Request("http://x", json({ submissionId: SUB })))).status).toBe(401);
-    expect(createSession).not.toHaveBeenCalled();
+    expect((await POST(new Request("http://x", json({ value: 1 })), ctx(ACTIVITY))).status).toBe(401);
   });
 
-  it("ignores client-supplied amounts and currencies", async () => {
-    state.server = fakeSupabase({ user: USER, tables: { activity_submissions: { data: ownSubmission } } });
-    state.admin = fakeSupabase({ tables: { activity_submissions: { data: [{ id: SUB }], error: null } } });
-    const { POST } = await import("@/app/api/payments/create-checkout-session/route");
-    const res = await POST(new Request("http://x", json({ submissionId: SUB, amount: 1, unit_amount: 1, currency: "inr" })));
+  it("rejects bad ids and values before touching the database", async () => {
+    state.server = fakeSupabase({ user: USER });
+    const { POST } = await import("@/app/api/activities/[id]/vote/route");
+    expect((await POST(new Request("http://x", json({ value: 1 })), ctx("not-a-uuid"))).status).toBe(404);
+    for (const value of [2, -5, "1", null, 0.5]) {
+      expect((await POST(new Request("http://x", json({ value })), ctx(ACTIVITY))).status).toBe(400);
+    }
+    expect(state.server.rpc).not.toHaveBeenCalledWith("cast_vote", expect.anything());
+  });
+
+  it("casts the vote as the session user through cast_vote", async () => {
+    state.server = fakeSupabase({ user: USER, rpc: { cast_vote: { data: { upvotes: 3, downvotes: 1, my_vote: -1 } } } });
+    const { POST } = await import("@/app/api/activities/[id]/vote/route");
+    const res = await POST(new Request("http://x", json({ value: -1, user_id: OTHER, upvotes: 999 })), ctx(ACTIVITY));
     expect(res.status).toBe(200);
-    const [params] = createSession.mock.calls[0] as unknown as [{ line_items: { price_data: { unit_amount: number; currency: string } }[] }];
-    expect(params.line_items[0].price_data).toMatchObject({ unit_amount: 100, currency: "usd" });
-    expect(state.admin.updates[0].values).toMatchObject({ payment_status: "checkout_created", stripe_checkout_session_id: "cs_1" });
+    expect(await res.json()).toEqual({ upvotes: 3, downvotes: 1, my_vote: -1 });
+    expect(state.server.rpc).toHaveBeenCalledWith("cast_vote", { p_activity_id: ACTIVITY, p_value: -1 });
   });
 
-  it("refuses to create a checkout for someone else's submission", async () => {
-    state.server = fakeSupabase({ user: USER, tables: { activity_submissions: { data: { ...ownSubmission, submitter_id: OTHER } } } });
-    state.admin = fakeSupabase({});
-    const { POST } = await import("@/app/api/payments/create-checkout-session/route");
-    expect((await POST(new Request("http://x", json({ submissionId: SUB })))).status).toBe(404);
-    expect(createSession).not.toHaveBeenCalled();
+  it("maps database errors to safe messages", async () => {
+    state.server = fakeSupabase({ user: USER, rpc: { cast_vote: { error: { message: "activity_not_found", code: "P0002" } } } });
+    const { POST } = await import("@/app/api/activities/[id]/vote/route");
+    const res = await POST(new Request("http://x", json({ value: 1 })), ctx(ACTIVITY));
+    expect(res.status).toBe(404);
+    expect((await res.json()).error.message).toBe("That activity isn't available.");
   });
 });
 
@@ -202,44 +195,6 @@ describe("profile endpoint", () => {
   });
 });
 
-describe("stripe webhook route", () => {
-  const stripe = new Stripe("sk_test_dummy");
-  const event = {
-    id: "evt_route",
-    type: "checkout.session.completed",
-    livemode: false,
-    data: { object: { id: "cs_1", client_reference_id: SUB, metadata: { submission_id: SUB }, payment_status: "paid", amount_total: 100, currency: "usd", payment_intent: "pi_1" } },
-  };
-
-  it("rejects missing and invalid signatures without touching the database", async () => {
-    state.admin = fakeSupabase({});
-    const { POST } = await import("@/app/api/webhooks/stripe/route");
-    expect((await POST(new Request("http://x", { method: "POST", body: JSON.stringify(event) }))).status).toBe(400);
-    const res = await POST(new Request("http://x", { method: "POST", body: JSON.stringify(event), headers: { "stripe-signature": "t=1,v1=deadbeef" } }));
-    expect(res.status).toBe(400);
-    expect(state.admin.rpc).not.toHaveBeenCalled();
-  });
-
-  it("applies a correctly signed event through apply_payment_event", async () => {
-    state.admin = fakeSupabase({ rpc: { apply_payment_event: { data: "applied" } } });
-    const { POST } = await import("@/app/api/webhooks/stripe/route");
-    const payload = JSON.stringify(event);
-    const header = stripe.webhooks.generateTestHeaderString({ payload, secret: "whsec_route_test" });
-    const res = await POST(new Request("http://x", { method: "POST", body: payload, headers: { "stripe-signature": header } }));
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ received: true, outcome: "applied" });
-    expect(state.admin.rpc).toHaveBeenCalledWith("apply_payment_event", expect.objectContaining({ p_event_id: "evt_route", p_to_status: "paid", p_submission_id: SUB }));
-  });
-
-  it("returns 500 so Stripe retries when the database fails", async () => {
-    state.admin = fakeSupabase({ rpc: { apply_payment_event: { error: { message: "boom" } } } });
-    const { POST } = await import("@/app/api/webhooks/stripe/route");
-    const payload = JSON.stringify({ ...event, id: "evt_fail" });
-    const header = stripe.webhooks.generateTestHeaderString({ payload, secret: "whsec_route_test" });
-    expect((await POST(new Request("http://x", { method: "POST", body: payload, headers: { "stripe-signature": header } }))).status).toBe(500);
-  });
-});
-
 describe("public API responses", () => {
   it("activity pool exposes only public fields (development seed mode)", async () => {
     const { GET } = await import("@/app/api/activities/route");
@@ -253,6 +208,7 @@ describe("public API responses", () => {
       expect(["outdoors", "anywhere"]).toContain(a.location);
       expect(a).not.toHaveProperty("status");
       expect(a).not.toHaveProperty("source");
+      expect(a).toMatchObject({ upvotes: 0, downvotes: 0 });
     }
   });
 

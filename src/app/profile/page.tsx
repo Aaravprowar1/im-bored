@@ -5,7 +5,7 @@ import { Flame, Settings } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { FavouritesList } from "@/components/profile/favourites-list";
 import { XpBar } from "@/components/progress-panel";
-import { ModerationBadge, PaymentBadge } from "@/components/submit/status-badges";
+import { ModerationBadge } from "@/components/submit/status-badges";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Container, Notice, PageHeading } from "@/components/ui/card";
 import { PUBLIC_ACTIVITY_COLUMNS, type PublicActivity } from "@/lib/activities/types";
@@ -101,7 +101,7 @@ export default async function ProfilePage() {
                 <li key={s.id}>
                   <Link href={`/submit/status/${s.id}`} className="flex flex-col gap-2 px-5 py-3 text-sm hover:bg-bg/60">
                     <span className="truncate font-medium">{s.title}</span>
-                    <span className="flex flex-wrap gap-2"><PaymentBadge status={s.payment_status} /><ModerationBadge status={s.moderation_status} /></span>
+                    <span className="flex flex-wrap gap-2"><ModerationBadge status={s.moderation_status} /></span>
                   </Link>
                 </li>
               ))}

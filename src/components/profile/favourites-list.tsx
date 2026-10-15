@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Heart } from "lucide-react";
 import { CategoryBadge, formatMinutes } from "@/components/activity-meta";
+import { VoteButtons } from "@/components/votes";
 import { EmptyState } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { useFavourites } from "@/components/use-favourites";
@@ -50,6 +51,7 @@ export function FavouritesList({ accountActivities }: { accountActivities: Publi
             </div>
             <p className="mt-2 font-medium">{a.title}</p>
             <p className="mt-1 line-clamp-2 text-sm text-muted">{a.description}</p>
+            <VoteButtons activity={a} size="sm" className="mt-3" />
           </div>
           <button
             type="button"

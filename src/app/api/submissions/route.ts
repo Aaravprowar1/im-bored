@@ -20,9 +20,9 @@ export async function GET() {
 }
 
 /**
- * Validates and stores a submission in the pending-payment state. Payment
- * status, amount, currency and owner are set by the database, never by the
- * request; unknown fields in the body are discarded by the schema.
+ * Validates and stores a submission, which goes straight to the review queue.
+ * Status and owner are set by the database, never by the request; unknown
+ * fields in the body are discarded by the schema.
  */
 export async function POST(request: Request) {
   const { supabase, user } = await getSessionUser();

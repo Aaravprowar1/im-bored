@@ -9,7 +9,7 @@ export default function ContactPage() {
   const email = publicConfig.contactEmail;
   return (
     <ProsePage title="Contact">
-      <p>Questions about an activity, a submission, a payment or your data? Get in touch and include your username and, for submissions, the submission title.</p>
+      <p>Questions about an activity, a submission or your data? Get in touch and include your username and, for submissions, the submission title.</p>
       {email ? (
         <p>Email: <a href={`mailto:${email}`}>{email}</a></p>
       ) : (

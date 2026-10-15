@@ -14,7 +14,8 @@ test("homepage renders the core experience", async ({ page }) => {
   await expect(page.getByRole("switch", { name: /Chaos Mode/ })).toBeVisible();
   await expect(page.getByText("Today's challenge")).toBeVisible();
   await expect(page.getByText("Your progress")).toBeVisible();
-  await expect(page.getByText("$1.00 USD").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /Suggest an idea/ })).toBeVisible();
+  await expect(page.getByText("$1")).toHaveCount(0);
   for (const link of ["About", "Privacy", "Terms", "Contact"]) {
     await expect(page.getByRole("contentinfo").getByRole("link", { name: link })).toBeVisible();
   }
@@ -30,6 +31,17 @@ test("generates an activity without a page reload, and a new one on request", as
   await expect(page.locator("#activity-title")).not.toHaveText(first ?? "");
   expect(await page.evaluate(() => (window as unknown as { marker?: number }).marker)).toBe(1);
   await expect(page.getByText(/Development mode: activities come from the built-in seed list/)).toBeVisible();
+});
+
+test("activities show vote buttons, and voting explains when accounts are off", async ({ page }) => {
+  await page.goto("/");
+  await generate(page);
+  const up = card(page).getByRole("button", { name: /^Upvote \(\d+\)$/ });
+  await expect(up).toBeVisible();
+  await expect(card(page).getByRole("button", { name: /^Downvote \(\d+\)$/ })).toBeVisible();
+  await up.click();
+  await expect(page.getByText("Voting needs accounts, which aren't set up on this site yet.")).toBeVisible();
+  await expect(up).toHaveAttribute("aria-pressed", "false");
 });
 
 test("filters work together", async ({ page }) => {

@@ -42,11 +42,10 @@ test("leaderboard never shows fake rankings without a database", async ({ page }
   await expect(page.locator("table")).toHaveCount(0);
 });
 
-test("submit page shows the $1 USD fee and an honest unavailable state", async ({ page }) => {
+test("submit page says suggestions are free and shows an honest unavailable state", async ({ page }) => {
   await page.goto("/submit");
-  await expect(page.getByText("$1.00", { exact: true })).toBeVisible();
-  await expect(page.getByText("US dollars, per submission")).toBeVisible();
-  await expect(page.getByText(/does not guarantee approval/)).toBeVisible();
+  await expect(page.getByText("No fee.", { exact: true })).toBeVisible();
+  await expect(page.getByText(/\$1|Stripe/)).toHaveCount(0);
   await expect(page.getByText("Submissions are closed on this site for now")).toBeVisible();
 });
 
@@ -64,8 +63,8 @@ test("admin and private status pages are not reachable", async ({ page }) => {
 
 test("API protects private operations", async ({ request }) => {
   expect((await request.post("/api/activities/44444444-4444-4444-8444-444444444444/complete")).status()).toBe(503);
-  expect((await request.post("/api/payments/create-checkout-session", { data: { submissionId: "x", amount: 1 } })).status()).toBe(503);
-  expect((await request.post("/api/webhooks/stripe", { data: {} })).status()).toBe(503);
+  expect((await request.post("/api/activities/44444444-4444-4444-8444-444444444444/vote", { data: { value: 1 } })).status()).toBe(503);
+  expect((await request.post("/api/payments/create-checkout-session", { data: { submissionId: "x" } })).status()).toBe(404);
   const robots = await request.get("/robots.txt");
   expect(await robots.text()).toContain("Disallow: /admin");
 });

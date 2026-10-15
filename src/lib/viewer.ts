@@ -17,6 +17,8 @@ export interface Viewer {
   };
   progress: UserProgress | null;
   favouriteIds: string[];
+  /** The visitor's own votes by activity id: 1 (up) or -1 (down). */
+  votes: Record<string, 1 | -1>;
   isAdmin: boolean;
 }
 
@@ -24,9 +26,9 @@ export interface Viewer {
 export const getViewer = cache(async (): Promise<Viewer> => {
   const { supabase, user } = await getSessionUser();
   if (!supabase || !user) {
-    return { configured: isSupabaseConfigured(), user: null, progress: null, favouriteIds: [], isAdmin: false };
+    return { configured: isSupabaseConfigured(), user: null, progress: null, favouriteIds: [], votes: {}, isAdmin: false };
   }
-  const [profile, progress, favourites, admin] = await Promise.all([
+  const [profile, progress, favourites, votes, admin] = await Promise.all([
     supabase.from("profiles").select("username,display_name,avatar_url,show_on_leaderboard").eq("id", user.id).maybeSingle(),
     supabase
       .from("user_progress")
@@ -34,6 +36,7 @@ export const getViewer = cache(async (): Promise<Viewer> => {
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase.from("user_favourites").select("activity_id").eq("user_id", user.id).limit(500),
+    supabase.from("activity_votes").select("activity_id,value").eq("user_id", user.id).limit(2000),
     isAdmin(supabase),
   ]);
   const p = progress.data as UserProgress | null;
@@ -44,6 +47,7 @@ export const getViewer = cache(async (): Promise<Viewer> => {
       : { id: user.id, email: user.email, username: "new_user", display_name: null, avatar_url: null, show_on_leaderboard: true },
     progress: p ? { ...p, current_streak: effectiveStreak(p.current_streak, p.last_active_date, utcDateString()) } : null,
     favouriteIds: (favourites.data ?? []).map((f) => f.activity_id as string),
+    votes: Object.fromEntries((votes.data ?? []).map((v) => [v.activity_id as string, v.value === 1 ? 1 : -1])),
     isAdmin: admin,
   };
 });

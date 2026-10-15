@@ -16,7 +16,7 @@ export default function AboutPage() {
         <li>Make an account if you want to earn XP, keep a streak, save favourites and appear on the <Link href="/leaderboard">leaderboard</Link>.</li>
       </ul>
       <h2>Where activities come from</h2>
-      <p>Our starting library was written by hand. Anyone with an account can <Link href="/submit">suggest an activity</Link> for a $1.00 USD review fee. A moderator reads every submission and only safe, kind, original ideas are published. Paying doesn&apos;t guarantee publication.</p>
+      <p>Our starting library was written by hand. Anyone with an account can <Link href="/submit">suggest an activity</Link> for free. A moderator reads every submission and only safe, kind, original ideas are published. Everyone can then vote activities up or down, and the best-loved ones come up more often.</p>
       <h2>What we won&apos;t do</h2>
       <p>No dangerous dares, no pranks at someone else&apos;s expense, no pressure to buy anything, and no invasive tracking.</p>
     </ProsePage>

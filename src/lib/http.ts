@@ -8,7 +8,6 @@ export type ErrorCode =
   | "invalid_input"
   | "conflict"
   | "rate_limited"
-  | "payment_unavailable"
   | "server_error";
 
 const STATUS: Record<ErrorCode, number> = {
@@ -19,7 +18,6 @@ const STATUS: Record<ErrorCode, number> = {
   invalid_input: 400,
   conflict: 409,
   rate_limited: 429,
-  payment_unavailable: 503,
   server_error: 500,
 };
 
@@ -43,11 +41,11 @@ export function fromDbError(error: { message?: string; code?: string } | null) {
   if (msg.includes("not_authenticated")) return apiError("unauthenticated", "Please sign in first.");
   if (msg.includes("not_admin")) return apiError("forbidden", "You don't have access to that.");
   if (msg.includes("account_suspended")) return apiError("forbidden", "This account is suspended.");
+  if (msg.includes("invalid_vote")) return apiError("invalid_input", "That isn't a valid vote.");
   if (msg.includes("activity_not_found")) return apiError("not_found", "That activity isn't available.");
   if (msg.includes("submission_not_found")) return apiError("not_found", "Submission not found.");
   if (msg.includes("no_daily_challenge")) return apiError("not_found", "There's no challenge today.");
   if (msg.includes("rate_limited")) return apiError("rate_limited", "Too many submissions today. Try again tomorrow.");
-  if (msg.includes("payment_not_verified")) return apiError("conflict", "Payment hasn't been verified for this submission.");
   if (msg.includes("invalid_transition")) return apiError("conflict", "That action isn't allowed in the current state.");
   if (msg.includes("reason_required")) return apiError("invalid_input", "Please include a note for the submitter.");
   if (msg.includes("date_in_past")) return apiError("invalid_input", "Pick today or a future date.");

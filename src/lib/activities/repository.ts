@@ -27,6 +27,8 @@ const LOCAL_POOL: PublicActivity[] = SEED_ACTIVITIES.map((a) => ({
   is_chaos: a.is_chaos,
   is_featured: a.is_featured,
   safety_note: a.safety_note,
+  upvotes: 0,
+  downvotes: 0,
 }));
 
 export function activitySource(): ActivitySource {
