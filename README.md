@@ -8,6 +8,7 @@ Built with Next.js 16 (App Router), React 19, TypeScript (strict), Tailwind CSS 
 - Accounts add XP, levels, streaks, synced favourites, the daily challenge bonus and the leaderboard.
 - Anyone signed in can suggest an activity for free. A moderator approves, rejects or requests changes.
 - Signed-in users can vote any activity up or down. Votes make well-liked activities come up more often in the generator.
+- Activities that teach a skill (38 of them, like tying a knot or juggling) show a popular YouTube tutorial.
 
 ## Status: what works and what needs configuring
 
@@ -18,6 +19,7 @@ Built with Next.js 16 (App Router), React 19, TypeScript (strict), Tailwind CSS 
 | Accounts, profiles, XP, streaks, synced favourites, daily challenge bonus, leaderboard | Implemented. **Needs Supabase.** Without it, the UI says accounts aren't set up and never shows sample scores. |
 | Free activity suggestions | Implemented. **Needs Supabase.** |
 | Upvotes and downvotes | Implemented. **Needs Supabase.** Without it, the buttons show and explain that accounts aren't set up. |
+| YouTube tutorials on skill activities | Works with no configuration as a link to YouTube's most-viewed results. **Add `YOUTUBE_API_KEY`** to show the most-viewed relevant video right on the card. |
 | Admin moderation | Implemented. Needs Supabase and an admin row (see below). |
 | Legal pages | Templates with `[placeholders]`. Must be completed and reviewed by a lawyer before commercial use. |
 
@@ -51,7 +53,7 @@ Playwright uses the Chromium that ships with `@playwright/test@1.56.1`. If you d
 ## Configure Supabase
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. **Run the migrations, in order.** Either paste each file in `supabase/migrations/` into the SQL editor and run it (`20261009000000_init.sql`, then `20261015000000_free_submissions_and_votes.sql`), or with the Supabase CLI: `supabase link --project-ref <ref>` then `supabase db push`. If you already ran the first one, just run the second.
+2. **Run the migrations, in order.** Either paste each file in `supabase/migrations/` into the SQL editor and run it (`20261009000000_init.sql`, then `20261015000000_free_submissions_and_votes.sql`, then `20261017000000_skill_videos.sql`), or with the Supabase CLI: `supabase link --project-ref <ref>` then `supabase db push`. If you already ran some of them, run only the newer ones, then re-run the seed (step 3) so skill activities get their video searches.
 3. **Seed activities.** Run `supabase/seed.sql` in the SQL editor, or set the env vars and run `npm run db:seed`. Both are idempotent (upsert on `slug`).
 4. **Environment variables** (Project settings → API): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and the server-only `SUPABASE_SERVICE_ROLE_KEY`.
 5. **Auth settings** (Authentication → URL configuration): set Site URL to your `NEXT_PUBLIC_SITE_URL`, and add `http://localhost:3000/auth/callback` and `https://<your-domain>/auth/callback` to the redirect allow list.
@@ -83,6 +85,7 @@ src/app/                  Pages and route handlers (App Router)
 src/components/           UI (ui/ primitives, activity explorer, panels, forms, admin)
 src/lib/activities/       Types/enums, seed data, filter parsing, pure selection engine, repository
 src/lib/submissions/      Moderation state machine, safety screen, types
+src/lib/videos/           YouTube tutorial lookup (most-viewed relevant video)
 src/lib/supabase/         Separate browser, server (SSR cookies) and service-role clients
 src/proxy.ts              Refreshes the Supabase session cookie (Next 16 "proxy", formerly middleware)
 supabase/migrations/      Schema, RLS, grants and SQL functions
@@ -117,6 +120,14 @@ e2e/                      Playwright
 ### Leaderboard
 
 `get_leaderboard()` returns only username, display name, avatar URL, XP and level. Ranking: XP descending, then whoever reached that XP first, then user id. Eligible accounts: not suspended, opted in (`show_on_leaderboard`, toggle in settings), XP > 0. Deleted accounts cascade away. Pages of 25; the signed-in user's rank is shown via `get_my_rank()`.
+
+### YouTube tutorials
+
+- Skill activities have a `video_query` (set in `VIDEO_QUERIES` in `src/lib/activities/seed-data.ts`), such as "how to tie a bowline knot".
+- `GET /api/activities/<id>/video` reads the search from the activity row (never from the request). With `YOUTUBE_API_KEY` set, it asks the YouTube Data API for the 10 most relevant embeddable, safe-search videos and returns the one with the most views. Results are cached for a day, which keeps quota use to about one search per skill activity per day (each search costs 101 of the free 10,000 daily units).
+- Without a key, or if YouTube fails, the card links to YouTube's results for the same search sorted by view count.
+- The card shows the thumbnail, title, channel and view count. The video only loads (from `youtube-nocookie.com`) when someone presses play.
+- To get a key: in the [Google Cloud console](https://console.cloud.google.com/), create a project, enable "YouTube Data API v3", then create an API key under APIs & Services → Credentials. Restrict it to that API. Add it as `YOUTUBE_API_KEY` (server only).
 
 ### Votes
 
@@ -160,8 +171,8 @@ None. The app doesn't send any data to analytics providers. If you add analytics
 
 ## Testing
 
-- `npm test` runs 85 tests: the generator (filters, Chaos Mode, no repeats, unpublished never returned, vote weighting), validation and safety screening, XP/streak/daily rules, route-handler authorization (unauthenticated, non-admin, other users' resources, client-supplied ids and statuses ignored), vote buttons (guest prompt, switching, rollback), and the real migrations in PGlite (RLS, grants, idempotent completions, free submissions, moderation, vote counts, rate limits).
-- `npm run build && npm run test:e2e` runs 46 Playwright tests on desktop and mobile in development mode: generation, combined filters, empty state and reset, Chaos Mode, vote buttons, guest favourites, keyboard use, no horizontal overflow on every page at 320–1440 px, honest unconfigured states, and protected routes.
+- `npm test` runs 98 tests: the generator (filters, Chaos Mode, no repeats, unpublished never returned, vote weighting), YouTube tutorial lookup and fallback, validation and safety screening, XP/streak/daily rules, route-handler authorization (unauthenticated, non-admin, other users' resources, client-supplied ids and statuses ignored), vote buttons (guest prompt, switching, rollback), and the real migrations in PGlite (RLS, grants, idempotent completions, free submissions, moderation, vote counts, rate limits).
+- `npm run build && npm run test:e2e` runs 48 Playwright tests on desktop and mobile in development mode: generation, combined filters, empty state and reset, Chaos Mode, vote buttons, YouTube links, guest favourites, keyboard use, no horizontal overflow on every page at 320–1440 px, honest unconfigured states, and protected routes.
 - PGlite runs requests one at a time, so "concurrent" completion and vote tests prove the constraints and counting rather than true parallel transactions. The guarantees rely on those constraints and on row locks in the SQL functions.
 
 ## Known gaps

@@ -53,6 +53,8 @@ export interface Activity {
   safety_note: string | null;
   upvotes: number;
   downvotes: number;
+  /** YouTube search for a popular tutorial, on activities that teach a skill. */
+  video_query: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -76,10 +78,11 @@ export type PublicActivity = Pick<
   | "safety_note"
   | "upvotes"
   | "downvotes"
+  | "video_query"
 >;
 
 export const PUBLIC_ACTIVITY_COLUMNS =
-  "id,title,description,category,duration_minutes,difficulty,location,energy_level,cost_type,people_type,xp_reward,is_chaos,is_featured,safety_note,upvotes,downvotes" as const;
+  "id,title,description,category,duration_minutes,difficulty,location,energy_level,cost_type,people_type,xp_reward,is_chaos,is_featured,safety_note,upvotes,downvotes,video_query" as const;
 
 export const CATEGORY_LABELS: Record<Category, string> = {
   creative: "Creative",

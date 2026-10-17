@@ -9,6 +9,7 @@ vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: async () =
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => state.admin?.client ?? null }));
 
 process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key-for-tests-only";
+process.env.YOUTUBE_API_KEY = "AIza-route-test-key-000000000000";
 
 const USER = { id: "11111111-1111-4111-8111-111111111111", email: "u@example.test" };
 const OTHER = "22222222-2222-4222-8222-222222222222";
@@ -192,6 +193,52 @@ describe("profile endpoint", () => {
     const chain = state.server.from.mock.results[0].value as { update: ReturnType<typeof vi.fn>; eq: ReturnType<typeof vi.fn> };
     expect(chain.update.mock.calls[0][0]).toEqual({ display_name: "Me" });
     expect(chain.eq).toHaveBeenCalledWith("id", USER.id);
+  });
+});
+
+describe("skill video endpoint", () => {
+  const youtube = (views: string) =>
+    vi.fn(async (url: string) =>
+      new Response(
+        JSON.stringify(
+          url.includes("/search?")
+            ? { items: [{ id: { videoId: "v1" } }] }
+            : { items: [{ id: "v1", snippet: { title: "Bowline in 30 seconds", channelTitle: "Ropes" }, statistics: { viewCount: views } }] },
+        ),
+      ),
+    );
+
+  it("finds a popular video for a skill activity, using the activity's own search", async () => {
+    const fetchMock = youtube("3100000");
+    vi.stubGlobal("fetch", fetchMock);
+    const { GET } = await import("@/app/api/activities/[id]/video/route");
+    const res = await GET(new Request("http://x/api/activities/learn-a-knot/video?q=evil"), ctx("learn-a-knot"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toContain("s-maxage=86400");
+    const body = await res.json();
+    expect(body).toMatchObject({ query: "how to tie a bowline knot", video: { id: "v1", views: 3_100_000, title: "Bowline in 30 seconds" } });
+    expect(body.searchUrl).toContain("sp=CAM%3D");
+    expect(new URL(fetchMock.mock.calls[0][0] as string).searchParams.get("q")).toBe("how to tie a bowline knot");
+    expect(JSON.stringify(body)).not.toContain("AIza");
+    vi.unstubAllGlobals();
+  });
+
+  it("falls back to the search link when YouTube fails", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("quota exceeded", { status: 403 })));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { GET } = await import("@/app/api/activities/[id]/video/route");
+    const res = await GET(new Request("http://x"), ctx("learn-a-knot"));
+    expect(res.status).toBe(200);
+    expect((await res.json()).video).toBeNull();
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("AIza");
+    warn.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("returns 404 for activities that don't teach a skill, or don't exist", async () => {
+    const { GET } = await import("@/app/api/activities/[id]/video/route");
+    expect((await GET(new Request("http://x"), ctx("six-word-story"))).status).toBe(404);
+    expect((await GET(new Request("http://x"), ctx("nope"))).status).toBe(404);
   });
 });
 

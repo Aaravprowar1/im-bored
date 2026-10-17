@@ -29,6 +29,7 @@ const LOCAL_POOL: PublicActivity[] = SEED_ACTIVITIES.map((a) => ({
   safety_note: a.safety_note,
   upvotes: 0,
   downvotes: 0,
+  video_query: a.video_query,
 }));
 
 export function activitySource(): ActivitySource {

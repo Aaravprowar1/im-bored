@@ -50,6 +50,21 @@ describe("schema", () => {
     expect(await constraintFor("activity_submissions", "moderation_status")).toEqual([...MODERATION_STATUSES].sort());
   });
 
+  it("seeds a YouTube search for skill activities only", async () => {
+    const r = await db.query<{ slug: string; video_query: string | null }>(
+      "select slug, video_query from public.activities where slug in ('learn-a-knot', 'six-word-story') order by slug",
+    );
+    expect(r.rows).toEqual([
+      { slug: "learn-a-knot", video_query: "how to tie a bowline knot" },
+      { slug: "six-word-story", video_query: null },
+    ]);
+    await expectError(db.query("update public.activities set video_query = ' ' where slug = 'learn-a-knot'"), /check constraint/);
+    const visible = await as(db, "anon", null, () =>
+      db.query<{ video_query: string }>("select video_query from public.activities where slug = 'learn-a-knot'"),
+    );
+    expect(visible.rows[0].video_query).toBe("how to tie a bowline knot");
+  });
+
   it("seeding twice does not duplicate activities", async () => {
     const before = await db.query<{ n: number }>("select count(*)::int n from public.activities");
     const { buildSeedSql } = await import("@/lib/activities/seed-sql");

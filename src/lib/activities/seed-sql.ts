@@ -25,6 +25,7 @@ export function buildSeedSql(): string {
       a.is_chaos,
       a.is_featured,
       a.safety_note,
+      a.video_query,
     ]
       .map(lit)
       .join(", ")}, 'published', 'seed', now())`,
@@ -36,7 +37,7 @@ export function buildSeedSql(): string {
 insert into public.activities (
   slug, title, description, category, duration_minutes, difficulty, location,
   energy_level, cost_type, people_type, xp_reward, is_chaos, is_featured, safety_note,
-  status, source, published_at
+  video_query, status, source, published_at
 ) values
 ${values}
 on conflict (slug) do update set
@@ -52,7 +53,8 @@ on conflict (slug) do update set
   xp_reward = excluded.xp_reward,
   is_chaos = excluded.is_chaos,
   is_featured = excluded.is_featured,
-  safety_note = excluded.safety_note
+  safety_note = excluded.safety_note,
+  video_query = excluded.video_query
 where public.activities.source = 'seed';
 `;
 }

@@ -28,6 +28,7 @@ export interface SeedActivity {
   is_chaos: boolean;
   is_featured: boolean;
   safety_note: string | null;
+  video_query: string | null;
 }
 
 type Row = [
@@ -204,6 +205,52 @@ const rows: Row[] = [
   ["chaos-cooking-show", "Cooking show host", "Make a sandwich while hosting your own over-the-top cooking show. Introduce every ingredient like a celebrity guest.", "mischief", 15, "medium", "indoors", "high", "free", "either", { chaos: true, safety: "Take care with knives." }],
 ];
 
+/**
+ * Activities that teach a skill, with the YouTube search used to find a
+ * popular tutorial for them (see src/lib/videos/youtube.ts). Keep each one
+ * short and specific so the top results are actual how-to videos.
+ */
+export const VIDEO_QUERIES: Record<string, string> = {
+  "blind-contour-drawing": "blind contour drawing tutorial",
+  "one-line-drawing": "continuous line drawing tutorial",
+  "mini-zine": "how to fold an 8 page mini zine",
+  "shadow-puppet-scene": "hand shadow puppets tutorial",
+  "paint-with-coffee": "coffee painting tutorial for beginners",
+  "haiku-of-now": "how to write a haiku",
+  "write-short-story-1000": "how to write a short story",
+  "stop-motion-film": "stop motion animation on your phone tutorial",
+  "memory-palace": "memory palace technique explained",
+  "mental-math-sprint": "mental math tricks",
+  "fermi-estimate": "fermi estimation explained",
+  "cipher-message": "substitution cipher explained",
+  "rubiks-one-face": "how to solve one face of a rubik's cube",
+  "memorise-pi": "how to memorize digits of pi",
+  "paper-airplane-test": "how to make the best paper airplane",
+  "one-minute-plank": "how to do a plank correctly",
+  "desk-stretch-routine": "5 minute desk stretch routine",
+  "learn-to-juggle": "how to juggle for beginners",
+  "learn-cup-stack": "cup stacking tutorial for beginners",
+  "stargazing-constellation": "how to find constellations for beginners",
+  "bird-count": "bird identification for beginners",
+  "indoor-garden": "regrow green onions from scraps",
+  "fold-origami-crane": "how to fold an origami crane",
+  "browser-game-jam": "scratch game tutorial for beginners",
+  "hello-five-languages": "how to say hello in different languages",
+  "learn-a-knot": "how to tie a bowline knot",
+  "sign-language-alphabet": "sign language alphabet fingerspelling",
+  "learn-a-card-trick": "easy card trick tutorial",
+  "learn-morse-sos": "learn morse code",
+  "identify-a-plant": "how to identify plants",
+  "learn-keyboard-shortcuts": "useful keyboard shortcuts everyone should know",
+  "learn-alphabet-new-script": "learn the korean alphabet hangul",
+  "learn-a-chord": "learn 3 piano chords for beginners",
+  "write-a-song": "how to write a song for beginners",
+  "learn-spreadsheet-trick": "excel formulas for beginners",
+  "build-a-website": "build a simple website for beginners",
+  "pomodoro-one": "pomodoro technique explained",
+  "password-check": "how to set up two factor authentication",
+};
+
 export const SEED_ACTIVITIES: SeedActivity[] = rows.map(
   ([slug, title, description, category, minutes, difficulty, location, energy, cost, people, flags]) => ({
     slug,
@@ -220,5 +267,6 @@ export const SEED_ACTIVITIES: SeedActivity[] = rows.map(
     is_chaos: flags?.chaos ?? false,
     is_featured: flags?.featured ?? false,
     safety_note: flags?.safety ?? null,
+    video_query: VIDEO_QUERIES[slug] ?? null,
   }),
 );

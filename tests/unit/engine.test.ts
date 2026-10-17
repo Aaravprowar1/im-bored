@@ -24,6 +24,7 @@ function make(id: string, patch: Partial<A> = {}): A {
     safety_note: null,
     upvotes: 0,
     downvotes: 0,
+    video_query: null,
     status: "published",
     ...patch,
   };

@@ -29,9 +29,13 @@ export function apiError(code: ErrorCode, message: string, fields?: Record<strin
   );
 }
 
-export function apiOk<T>(data: T, init?: { status?: number; cache?: "private" | "public-short" }) {
+export function apiOk<T>(data: T, init?: { status?: number; cache?: "private" | "public-short" | "public-day" }) {
   const cache =
-    init?.cache === "public-short" ? "public, s-maxage=30, max-age=0, must-revalidate" : "private, no-store";
+    init?.cache === "public-short"
+      ? "public, s-maxage=30, max-age=0, must-revalidate"
+      : init?.cache === "public-day"
+        ? "public, s-maxage=86400, max-age=3600, stale-while-revalidate=86400"
+        : "private, no-store";
   return NextResponse.json(data, { status: init?.status ?? 200, headers: { "Cache-Control": cache } });
 }
 

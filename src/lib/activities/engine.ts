@@ -7,8 +7,8 @@ import type { ActivityStatus, PublicActivity } from "./types";
  */
 
 // Vote totals are optional so the bundled seed list (which has none) can be used directly.
-type Candidate = Omit<PublicActivity, "upvotes" | "downvotes"> &
-  Partial<Pick<PublicActivity, "upvotes" | "downvotes">> & { status?: ActivityStatus };
+type Candidate = Omit<PublicActivity, "upvotes" | "downvotes" | "video_query"> &
+  Partial<Pick<PublicActivity, "upvotes" | "downvotes" | "video_query">> & { status?: ActivityStatus };
 
 /** Applies every filter except Chaos Mode. Unpublished records never pass. */
 export function matchesFilters(activity: Candidate, filters: ActivityFilters): boolean {

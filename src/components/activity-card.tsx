@@ -3,6 +3,7 @@
 import { Check, Heart, Loader2, RefreshCw, ShieldAlert, Sparkles } from "lucide-react";
 import { ActivityMeta, CategoryBadge } from "@/components/activity-meta";
 import { Button } from "@/components/ui/button";
+import { SkillVideo } from "@/components/skill-video";
 import { VoteButtons } from "@/components/votes";
 import type { PublicActivity } from "@/lib/activities/types";
 import { cn } from "@/lib/cn";
@@ -62,6 +63,8 @@ export function ActivityCard({
           {activity.safety_note}
         </p>
       ) : null}
+
+      {activity.video_query ? <SkillVideo key={activity.id} activityId={activity.id} query={activity.video_query} /> : null}
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <VoteButtons activity={activity} size="sm" />

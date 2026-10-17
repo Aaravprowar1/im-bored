@@ -44,6 +44,30 @@ test("activities show vote buttons, and voting explains when accounts are off", 
   await expect(up).toHaveAttribute("aria-pressed", "false");
 });
 
+test("skill activities link to popular YouTube tutorials", async ({ page, request }) => {
+  const api = await request.get("/api/activities/learn-a-knot/video");
+  expect(api.status()).toBe(200);
+  // No YouTube key in tests, so it offers YouTube's most-viewed results instead of a picked video.
+  expect(await api.json()).toEqual({
+    query: "how to tie a bowline knot",
+    searchUrl: "https://www.youtube.com/results?search_query=how+to+tie+a+bowline+knot&sp=CAM%3D",
+    video: null,
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Learn", exact: true }).click();
+  let found = false;
+  for (let i = 0; i < 25 && !found; i++) {
+    if (i > 0) await generate(page);
+    await expect(card(page)).toBeVisible();
+    found = (await card(page).getByLabel("Video tutorial").count()) > 0;
+  }
+  expect(found).toBe(true);
+  const link = card(page).getByRole("link", { name: /most-viewed tutorials for/ });
+  await expect(link).toHaveAttribute("href", /^https:\/\/www\.youtube\.com\/results\?search_query=.+&sp=CAM%3D$/);
+  await expect(link).toHaveAttribute("target", "_blank");
+});
+
 test("filters work together", async ({ page }) => {
   await page.goto("/");
   await page.getByLabel("Time").selectOption("15");

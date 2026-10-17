@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ActivityCard } from "@/components/activity-card";
+import { SkillVideo } from "@/components/skill-video";
 import { SubmissionStatus } from "@/components/submit/submission-status";
 import { ToastProvider } from "@/components/toast";
 import { ViewerProvider } from "@/components/viewer-context";
@@ -30,6 +31,7 @@ const activity: PublicActivity = {
   safety_note: null,
   upvotes: 4,
   downvotes: 1,
+  video_query: null,
 };
 
 const GUEST: Viewer = { configured: true, user: null, progress: null, favouriteIds: [], votes: {}, isAdmin: false };
@@ -68,6 +70,43 @@ describe("ActivityCard", () => {
     expect(screen.getByRole("button", { name: /I DID IT/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Upvote (4)" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Downvote (1)" })).toBeInTheDocument();
+  });
+});
+
+const jsonResponse = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+describe("skill videos", () => {
+  const video = { id: "abc123", title: "How to Tie a Bowline", channel: "Knots Inc", views: 2_400_000, thumbnail: "https://i.ytimg.com/vi/abc123/hqdefault.jpg" };
+
+  it("shows only on activities that teach a skill", () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ video: null, searchUrl: "https://www.youtube.com/results?search_query=x" })));
+    const { unmount } = withProviders(<ActivityCard activity={activity} saved={false} saveScope="device" onToggleSave={vi.fn()} onComplete={vi.fn()} onNext={vi.fn()} />);
+    expect(screen.queryByLabelText("Video tutorial")).not.toBeInTheDocument();
+    unmount();
+    withProviders(<ActivityCard activity={{ ...activity, video_query: "how to tie a bowline knot" }} saved={false} saveScope="device" onToggleSave={vi.fn()} onComplete={vi.fn()} onNext={vi.fn()} />);
+    expect(screen.getByLabelText("Video tutorial")).toBeInTheDocument();
+  });
+
+  it("shows the most-viewed video with its views, and plays it in place", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ video, searchUrl: "https://www.youtube.com/results?search_query=x" }));
+    vi.stubGlobal("fetch", fetchMock);
+    withProviders(<SkillVideo activityId="learn-a-knot" query="how to tie a bowline knot" />);
+    expect(await screen.findByText("How to Tie a Bowline")).toBeInTheDocument();
+    expect(screen.getByText("Knots Inc · 2.4M views")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/activities/learn-a-knot/video", expect.anything());
+    expect(screen.getByRole("link", { name: /Open on YouTube/ })).toHaveAttribute("href", "https://www.youtube.com/watch?v=abc123");
+    expect(document.querySelector("iframe")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: 'Play "How to Tie a Bowline" here' }));
+    expect(document.querySelector("iframe")?.getAttribute("src")).toBe("https://www.youtube-nocookie.com/embed/abc123?autoplay=1&rel=0");
+  });
+
+  it("links to YouTube's most-viewed results when there's no picked video or the request fails", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse({ error: { code: "server_error", message: "x" } }, 500)));
+    withProviders(<SkillVideo activityId="learn-a-knot" query="how to tie a bowline knot" />);
+    const link = await screen.findByRole("link", { name: /most-viewed tutorials for .how to tie a bowline knot./ });
+    expect(link).toHaveAttribute("href", "https://www.youtube.com/results?search_query=how+to+tie+a+bowline+knot&sp=CAM%3D");
+    expect(link).toHaveAttribute("target", "_blank");
   });
 });
 

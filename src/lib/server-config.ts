@@ -4,6 +4,7 @@ import { z } from "zod";
 /** Server-only secrets. Never import this module from client components. */
 const serverSchema = z.object({
   supabaseServiceRoleKey: z.string().min(20).optional(),
+  youtubeApiKey: z.string().min(20).optional(),
 });
 
 function clean(v: string | undefined) {
@@ -16,6 +17,7 @@ export function serverConfig() {
   if (!cached) {
     const parsed = serverSchema.safeParse({
       supabaseServiceRoleKey: clean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      youtubeApiKey: clean(process.env.YOUTUBE_API_KEY),
     });
     if (!parsed.success) {
       // Only names and rules are reported, never values.
