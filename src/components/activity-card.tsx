@@ -32,6 +32,7 @@ export function ActivityCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <CategoryBadge category={activity.category} />
+          {activity.secondary_category ? <CategoryBadge category={activity.secondary_category} /> : null}
           {activity.is_chaos ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-ink/10 bg-ink px-3 py-1 text-xs font-medium text-bg">
               <Sparkles className="size-3" aria-hidden /> Chaos

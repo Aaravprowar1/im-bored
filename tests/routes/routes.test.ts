@@ -243,20 +243,29 @@ describe("skill video endpoint", () => {
 });
 
 describe("public API responses", () => {
-  it("activity pool exposes only public fields (development seed mode)", async () => {
-    const { GET } = await import("@/app/api/activities/route");
+  it("random activity respects filters and exposes only public fields (development seed mode)", async () => {
+    const { GET } = await import("@/app/api/activities/random/route");
     const { NextRequest } = await import("next/server");
-    const res = await GET(new NextRequest("http://x/api/activities?time=15&location=outdoors"));
-    const body = await res.json();
-    expect(body.source).toBe("local-seed");
-    expect(body.activities.length).toBeGreaterThan(0);
-    for (const a of body.activities) {
+    let previous: string | null = null;
+    for (let i = 0; i < 20; i++) {
+      const res = await GET(new NextRequest(`http://x/api/activities/random?time=15&location=outdoors${previous ? `&exclude=${previous}` : ""}`));
+      const body = await res.json();
+      expect(body.source).toBe("local-seed");
+      const a = body.activity;
+      expect(a.id).not.toBe(previous);
       expect(a.duration_minutes).toBeLessThanOrEqual(15);
       expect(["outdoors", "anywhere"]).toContain(a.location);
       expect(a).not.toHaveProperty("status");
       expect(a).not.toHaveProperty("source");
       expect(a).toMatchObject({ upvotes: 0, downvotes: 0 });
+      previous = a.id;
     }
+  });
+
+  it("activity list needs ids", async () => {
+    const { GET } = await import("@/app/api/activities/route");
+    const { NextRequest } = await import("next/server");
+    expect((await GET(new NextRequest("http://x/api/activities?time=15"))).status).toBe(400);
   });
 
   it("leaderboard is honest when accounts are not configured", async () => {

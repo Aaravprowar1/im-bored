@@ -47,6 +47,7 @@ export function FavouritesList({ accountActivities }: { accountActivities: Publi
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <CategoryBadge category={a.category} />
+              {a.secondary_category ? <CategoryBadge category={a.secondary_category} /> : null}
               <span className="text-xs text-muted">{formatMinutes(a.duration_minutes)}</span>
             </div>
             <p className="mt-2 font-medium">{a.title}</p>

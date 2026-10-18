@@ -68,7 +68,8 @@ describe("schema", () => {
   it("seeding twice does not duplicate activities", async () => {
     const before = await db.query<{ n: number }>("select count(*)::int n from public.activities");
     const { buildSeedSql } = await import("@/lib/activities/seed-sql");
-    await db.exec(buildSeedSql());
+    const { BASE_ACTIVITIES } = await import("@/lib/activities/seed-data");
+    await db.exec(buildSeedSql(BASE_ACTIVITIES));
     const after = await db.query<{ n: number }>("select count(*)::int n from public.activities");
     expect(after.rows[0].n).toBe(before.rows[0].n);
     expect(before.rows[0].n).toBeGreaterThanOrEqual(100);
@@ -506,4 +507,121 @@ describe("votes", () => {
     await db.query("update public.profiles set is_suspended = true where id = $1", [ALICE]);
     await expectError(vote(ALICE, a.id, 1), /account_suspended/);
   });
+});
+
+describe("random pick", () => {
+  type Pick = { eligible: number; chaos_fallback: boolean; activity: Record<string, unknown> | null };
+  const pick = (args: Record<string, unknown> = {}, role: "anon" | "authenticated" = "anon") =>
+    as(db, role, role === "anon" ? null : ALICE, () =>
+      db.query<{ r: Pick }>(
+        `select public.pick_random_activity(
+           p_max_minutes => $1, p_locations => $2, p_energy => $3, p_cost => $4,
+           p_category => $5, p_chaos => $6, p_exclude => $7) r`,
+        [
+          args.maxMinutes ?? null,
+          args.locations ?? null,
+          args.energy ?? null,
+          args.cost ?? null,
+          args.category ?? null,
+          args.chaos ?? false,
+          args.exclude ?? null,
+        ],
+      ),
+    ).then((res) => res.rows[0].r);
+  const count = async (where: string) =>
+    (await db.query<{ n: number }>(`select count(*)::int n from public.activities where status = 'published' and ${where}`)).rows[0].n;
+
+  it("applies every filter and returns only public fields", async () => {
+    for (let i = 0; i < 25; i++) {
+      const r = await pick({ maxMinutes: 15, locations: ["outdoors", "anywhere"], energy: "low", cost: "free" });
+      expect(r.eligible).toBe(
+        await count("duration_minutes <= 15 and location in ('outdoors','anywhere') and energy_level = 'low' and cost_type = 'free'"),
+      );
+      const a = r.activity!;
+      expect(a.duration_minutes as number).toBeLessThanOrEqual(15);
+      expect(["outdoors", "anywhere"]).toContain(a.location);
+      expect(a).toMatchObject({ energy_level: "low", cost_type: "free" });
+      expect(Object.keys(a).sort()).toEqual(
+        "category,cost_type,description,difficulty,downvotes,duration_minutes,energy_level,id,is_chaos,is_featured,location,people_type,safety_note,secondary_category,title,upvotes,video_query,xp_reward"
+          .split(",")
+          .sort(),
+      );
+    }
+    const music = await pick({ category: "music" }, "authenticated");
+    expect(music.activity).toMatchObject({ category: "music" });
+  });
+
+  it("matches an activity's second category too", async () => {
+    await db.exec("update public.activities set status = 'archived' where category = 'social'");
+    expect((await pick({ category: "social" })).eligible).toBe(0);
+    await db.exec("update public.activities set secondary_category = 'social' where slug = 'write-a-jingle'");
+    const r = await pick({ category: "social" });
+    expect(r.activity).toMatchObject({ title: "Write a jingle", category: "music", secondary_category: "social" });
+    await expectError(db.exec("update public.activities set secondary_category = 'music' where slug = 'write-a-jingle'"), /check constraint/);
+  });
+
+  it("never returns unpublished activities", async () => {
+    await db.exec("update public.activities set status = 'archived' where category <> 'music' or slug <> 'write-a-jingle'");
+    for (let i = 0; i < 5; i++) {
+      const r = await pick();
+      expect(r.eligible).toBe(1);
+      expect(r.activity).toMatchObject({ title: "Write a jingle" });
+    }
+  });
+
+  it("explains an empty result", async () => {
+    const r = await pick({ maxMinutes: 5, category: "outdoors", locations: ["computer"] });
+    expect(r).toEqual({ eligible: 0, chaos_fallback: false, activity: null });
+  });
+
+  it("Chaos Mode prefers chaos activities and says when there are none", async () => {
+    for (let i = 0; i < 10; i++) expect((await pick({ chaos: true })).activity).toMatchObject({ is_chaos: true });
+    await db.exec("update public.activities set is_chaos = false where category = 'productivity'");
+    const r = await pick({ chaos: true, category: "productivity" });
+    expect(r.chaos_fallback).toBe(true);
+    expect(r.activity).toMatchObject({ category: "productivity", is_chaos: false });
+    expect((await pick({ chaos: false, category: "productivity" })).chaos_fallback).toBe(false);
+  });
+
+  it("doesn't repeat the previous activity unless it's the only match", async () => {
+    const first = (await pick({ category: "music" })).activity!;
+    for (let i = 0; i < 15; i++) {
+      expect((await pick({ category: "music", exclude: first.id })).activity!.id).not.toBe(first.id);
+    }
+    await db.exec("update public.activities set status = 'archived' where category = 'music' and id <> '" + first.id + "'");
+    expect((await pick({ category: "music", exclude: first.id })).activity!.id).toBe(first.id);
+  });
+
+  it("weights picks by votes without ruling anything out", async () => {
+    await db.exec("update public.activities set status = 'archived' where category <> 'music'");
+    await db.exec("update public.activities set upvotes = 0, downvotes = 200 where category = 'music'");
+    await db.exec("update public.activities set upvotes = 200, downvotes = 0 where slug = 'write-a-jingle'");
+    // Weights: 1.2 for the loved one, about 0.205 for each of the others.
+    const music = await count("category = 'music'");
+    const expected = 1.2 / (1.2 + (music - 1) * (0.2 + 1 / 202));
+    let hits = 0;
+    const runs = 400;
+    const seen = new Set<string>();
+    for (let i = 0; i < runs; i++) {
+      const a = (await pick()).activity!;
+      seen.add(a.id as string);
+      if (a.title === "Write a jingle") hits++;
+    }
+    expect(hits / runs).toBeGreaterThan(expected - 0.1);
+    expect(hits / runs).toBeLessThan(expected + 0.1);
+    expect(seen.size).toBeGreaterThan(2);
+  });
+});
+
+describe("full library", () => {
+  it("loads every seed activity into the database", async () => {
+    const full = await createDb({ seed: false });
+    const { SEED_ACTIVITIES } = await import("@/lib/activities/seed-data");
+    const { buildSeedSql } = await import("@/lib/activities/seed-sql");
+    await full.exec(buildSeedSql());
+    await full.exec(buildSeedSql());
+    const r = await full.query<{ n: number }>("select count(*)::int n from public.activities where status = 'published'");
+    expect(r.rows[0].n).toBe(SEED_ACTIVITIES.length);
+    await full.close();
+  }, 60_000);
 });

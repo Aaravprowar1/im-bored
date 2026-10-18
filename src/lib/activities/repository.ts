@@ -1,7 +1,7 @@
 import "server-only";
 import { isSupabaseConfigured } from "@/lib/config";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { filterActivities } from "./engine";
+import { filterActivities, pickActivity } from "./engine";
 import { locationsForFilter, type ActivityFilters } from "./filters";
 import { SEED_ACTIVITIES } from "./seed-data";
 import { PUBLIC_ACTIVITY_COLUMNS, type PublicActivity } from "./types";
@@ -17,6 +17,7 @@ const LOCAL_POOL: PublicActivity[] = SEED_ACTIVITIES.map((a) => ({
   title: a.title,
   description: a.description,
   category: a.category,
+  secondary_category: a.secondary_category,
   duration_minutes: a.duration_minutes,
   difficulty: a.difficulty,
   location: a.location,
@@ -36,28 +37,40 @@ export function activitySource(): ActivitySource {
   return isSupabaseConfigured() ? "database" : "local-seed";
 }
 
-const POOL_LIMIT = 500;
+export type RandomPick = {
+  source: ActivitySource;
+  activity: PublicActivity | null;
+  chaosFallback: boolean;
+  /** How many published activities match the filters (ignoring Chaos Mode). */
+  eligible: number;
+};
 
 /**
- * Returns published activities matching every filter except Chaos Mode (the
- * engine applies chaos preference). Filtering happens in the SQL query, and
- * RLS independently restricts anon users to published rows.
+ * Picks one random activity for the filters, weighted by votes, never the
+ * previous one when another choice exists. In the database this happens in
+ * pick_random_activity(), so only one activity is sent to the browser.
  */
-export async function getEligiblePool(filters: ActivityFilters): Promise<{ source: ActivitySource; activities: PublicActivity[] }> {
+export async function pickRandomActivity(filters: ActivityFilters, previousId: string | null): Promise<RandomPick> {
   const supabase = await createSupabaseServerClient();
-  if (!supabase) return { source: "local-seed", activities: filterActivities(LOCAL_POOL, filters) };
-
-  let query = supabase.from("activities").select(PUBLIC_ACTIVITY_COLUMNS).eq("status", "published");
-  if (filters.maxMinutes !== null) query = query.lte("duration_minutes", filters.maxMinutes);
-  const locations = locationsForFilter(filters.location);
-  if (locations) query = query.in("location", locations);
-  if (filters.energy !== "any") query = query.eq("energy_level", filters.energy);
-  if (filters.cost !== "any") query = query.eq("cost_type", filters.cost);
-  if (filters.category !== "any") query = query.eq("category", filters.category);
-
-  const { data, error } = await query.order("id").limit(POOL_LIMIT);
-  if (error) throw new Error("Failed to load activities");
-  return { source: "database", activities: (data ?? []) as PublicActivity[] };
+  if (!supabase) {
+    const pool = filterActivities(LOCAL_POOL, filters);
+    const result = pickActivity(pool, filters, { previousId });
+    return result.kind === "empty"
+      ? { source: "local-seed", activity: null, chaosFallback: false, eligible: 0 }
+      : { source: "local-seed", activity: result.activity, chaosFallback: result.chaosFallback, eligible: pool.length };
+  }
+  const { data, error } = await supabase.rpc("pick_random_activity", {
+    p_max_minutes: filters.maxMinutes,
+    p_locations: locationsForFilter(filters.location),
+    p_energy: filters.energy === "any" ? null : filters.energy,
+    p_cost: filters.cost === "any" ? null : filters.cost,
+    p_category: filters.category === "any" ? null : filters.category,
+    p_chaos: filters.chaos,
+    p_exclude: previousId && /^[0-9a-f-]{36}$/i.test(previousId) ? previousId : null,
+  });
+  if (error) throw new Error("Failed to pick an activity");
+  const r = data as { eligible: number; chaos_fallback: boolean; activity: PublicActivity | null };
+  return { source: "database", activity: r.activity, chaosFallback: r.chaos_fallback, eligible: r.eligible };
 }
 
 export async function getActivityById(id: string): Promise<PublicActivity | null> {

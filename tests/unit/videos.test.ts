@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { SEED_ACTIVITIES, VIDEO_QUERIES } from "@/lib/activities/seed-data";
+import { BASE_ACTIVITIES, SEED_ACTIVITIES, VIDEO_QUERIES } from "@/lib/activities/seed-data";
 import { findPopularVideo, formatViews, youtubeSearchUrl } from "@/lib/videos/youtube";
 
 const KEY = "AIza-test-key-0000000000000000";
@@ -74,13 +74,17 @@ describe("video helpers and seed data", () => {
   });
 
   it("gives every video search to a real seed activity, within the database's limits", () => {
-    const slugs = new Set(SEED_ACTIVITIES.map((a) => a.slug));
+    const slugs = new Set(BASE_ACTIVITIES.map((a) => a.slug));
     for (const [slug, query] of Object.entries(VIDEO_QUERIES)) {
       expect(slugs.has(slug), slug).toBe(true);
       expect(query.trim().length).toBeGreaterThanOrEqual(3);
       expect(query.length).toBeLessThanOrEqual(120);
     }
-    expect(SEED_ACTIVITIES.filter((a) => a.video_query).length).toBe(Object.keys(VIDEO_QUERIES).length);
+    expect(BASE_ACTIVITIES.filter((a) => a.video_query).length).toBe(Object.keys(VIDEO_QUERIES).length);
+    for (const a of SEED_ACTIVITIES.filter((x) => x.video_query)) {
+      expect(a.video_query!.trim().length, a.slug).toBeGreaterThanOrEqual(3);
+      expect(a.video_query!.length, a.slug).toBeLessThanOrEqual(120);
+    }
     expect(Object.keys(VIDEO_QUERIES).length).toBeGreaterThanOrEqual(30);
   });
 });

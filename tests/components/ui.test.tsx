@@ -19,6 +19,7 @@ const activity: PublicActivity = {
   title: "Six-word story",
   description: "Write a complete story in six words.",
   category: "creative",
+  secondary_category: null,
   duration_minutes: 5,
   difficulty: "easy",
   location: "anywhere",

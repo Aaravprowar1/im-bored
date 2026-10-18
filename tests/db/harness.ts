@@ -1,6 +1,7 @@
 import { PGlite } from "@electric-sql/pglite";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { BASE_ACTIVITIES } from "@/lib/activities/seed-data";
 import { buildSeedSql } from "@/lib/activities/seed-sql";
 
 /**
@@ -38,7 +39,8 @@ export async function createDb({ seed = true } = {}): Promise<Db> {
   for (const file of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) {
     await db.exec(readFileSync(join(dir, file), "utf8"));
   }
-  if (seed) await db.exec(buildSeedSql());
+  // The starter set keeps each test fast; one test loads the whole library.
+  if (seed) await db.exec(buildSeedSql(BASE_ACTIVITIES));
   return db;
 }
 

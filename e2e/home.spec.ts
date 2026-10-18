@@ -1,4 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
+import { filterActivities } from "../src/lib/activities/engine";
+import { DEFAULT_FILTERS } from "../src/lib/activities/filters";
+import { SEED_ACTIVITIES } from "../src/lib/activities/seed-data";
+import { CATEGORIES, CATEGORY_LABELS, COST_TYPES, ENERGY_LEVELS } from "../src/lib/activities/types";
 
 async function generate(page: Page) {
   await page.getByRole("button", { name: "GIVE ME SOMETHING TO DO" }).click();
@@ -85,9 +89,9 @@ test("filters work together", async ({ page }) => {
 
 test("impossible filters show the no-match message and reset works", async ({ page }) => {
   await page.goto("/");
-  await page.getByLabel("Time").selectOption("5");
+  // Outdoors activities never need a screen, so this can't match.
+  await page.getByRole("button", { name: "Outdoors", exact: true }).click();
   await page.getByLabel("Location").selectOption("computer");
-  await page.getByLabel("Cost").selectOption("paid");
   await generate(page);
   await expect(page.getByText("No activities match those filters. Try widening your search.")).toBeVisible();
   await page.getByRole("button", { name: "Reset filters" }).first().click();
@@ -108,11 +112,35 @@ test("Chaos Mode is an accessible toggle that changes the pool and survives relo
   }
   await page.reload();
   await expect(page.getByRole("switch", { name: /Chaos Mode/ })).toHaveAttribute("aria-checked", "true");
-  // Chaos Mode can't override a category with no chaos activities: it explains and falls back.
-  await page.getByRole("button", { name: "Productivity", exact: true }).click();
+  // Chaos Mode can't override filters with no chaos activities: it explains and falls back.
+  const f = noChaosFilters();
+  await page.getByRole("button", { name: CATEGORY_LABELS[f.category], exact: true }).click();
+  await page.getByLabel("Time").selectOption(String(f.maxMinutes));
+  await page.getByLabel("Location").selectOption(f.location);
+  await page.getByLabel("Energy").selectOption(f.energy);
+  await page.getByLabel("Cost").selectOption(f.cost);
+  await generate(page);
   await expect(page.getByText(/No chaos activities match these filters/)).toBeVisible();
-  await expect(card(page).getByText("Productivity").first()).toBeVisible();
+  await expect(card(page).getByText(CATEGORY_LABELS[f.category]).first()).toBeVisible();
 });
+
+/** Finds filters that match some activities but no chaos ones in the bundled library. */
+function noChaosFilters() {
+  for (const category of CATEGORIES) {
+    for (const maxMinutes of [5, 15, 30, 60] as const) {
+      for (const location of ["indoors", "outdoors", "computer"] as const) {
+        for (const energy of ENERGY_LEVELS) {
+          for (const cost of COST_TYPES) {
+            const filters = { ...DEFAULT_FILTERS, category, maxMinutes, location, energy, cost };
+            const pool = filterActivities(SEED_ACTIVITIES.map((a) => ({ ...a, id: a.slug })), filters);
+            if (pool.length > 0 && !pool.some((a) => a.is_chaos)) return filters;
+          }
+        }
+      }
+    }
+  }
+  throw new Error("Every filter combination has a chaos activity");
+}
 
 test("guest favourites are saved on this device", async ({ page }) => {
   await page.goto("/");

@@ -12,7 +12,7 @@ import { useToast } from "@/components/toast";
 import { useFavourites } from "@/components/use-favourites";
 import { useViewer } from "@/components/viewer-context";
 import { api } from "@/lib/api-client";
-import { CHAOS_FALLBACK_MESSAGE, NO_MATCH_MESSAGE, pickActivity } from "@/lib/activities/engine";
+import { CHAOS_FALLBACK_MESSAGE, NO_MATCH_MESSAGE } from "@/lib/activities/engine";
 import {
   DEFAULT_FILTERS,
   filtersToParams,
@@ -32,11 +32,12 @@ type Status =
   | { kind: "empty"; reason: "filters" | "library" }
   | { kind: "error"; message: string };
 
-type PoolResponse = { source: "database" | "local-seed"; activities: PublicActivity[] };
-
-function poolKey(filters: ActivityFilters) {
-  return filtersToParams({ ...filters, chaos: false }).toString();
-}
+type RandomResponse = {
+  source: "database" | "local-seed";
+  activity: PublicActivity | null;
+  chaosFallback?: boolean;
+  libraryEmpty?: boolean;
+};
 
 export function ActivityExplorer() {
   const viewer = useViewer();
@@ -45,9 +46,8 @@ export function ActivityExplorer() {
   const favourites = useFavourites();
   const [filters, setFilters] = useState<ActivityFilters>(DEFAULT_FILTERS);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
-  const [source, setSource] = useState<PoolResponse["source"] | null>(null);
+  const [source, setSource] = useState<RandomResponse["source"] | null>(null);
   const [completing, setCompleting] = useState(false);
-  const pools = useRef(new Map<string, PublicActivity[]>());
   const previousId = useRef<string | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
@@ -75,36 +75,27 @@ export function ActivityExplorer() {
     });
   }, []);
 
-  const loadPool = useCallback(async (f: ActivityFilters) => {
-    const key = poolKey(f);
-    const cached = pools.current.get(key);
-    if (cached) return cached;
-    const res = await api<PoolResponse>(`/api/activities?${key}`);
-    if (!res.ok) throw new Error(res.error.message);
-    setSource(res.data.source);
-    pools.current.set(key, res.data.activities);
-    return res.data.activities;
-  }, []);
-
   const generate = useCallback(
     async (f: ActivityFilters = filters) => {
-      const key = poolKey(f);
-      if (!pools.current.has(key)) setStatus({ kind: "loading" });
-      try {
-        const pool = await loadPool(f);
-        const result = pickActivity(pool, f, { previousId: previousId.current });
-        if (result.kind === "empty") {
-          const library = isDefaultFilters(f) && pool.length === 0;
-          setStatus({ kind: "empty", reason: library ? "library" : "filters" });
-          return;
-        }
-        previousId.current = result.activity.id;
-        setStatus({ kind: "ready", activity: result.activity, chaosFallback: result.chaosFallback });
-      } catch (e) {
-        setStatus({ kind: "error", message: e instanceof Error ? e.message : "Couldn't load activities." });
+      // Keep the current card on screen while the next one loads.
+      setStatus((prev) => (prev.kind === "ready" ? prev : { kind: "loading" }));
+      const params = filtersToParams(f);
+      if (previousId.current) params.set("exclude", previousId.current);
+      const res = await api<RandomResponse>(`/api/activities/random?${params.toString()}`);
+      if (!res.ok) {
+        setStatus({ kind: "error", message: res.error.message || "Couldn't load activities." });
+        return;
       }
+      setSource(res.data.source);
+      const activity = res.data.activity;
+      if (!activity) {
+        setStatus({ kind: "empty", reason: res.data.libraryEmpty ? "library" : "filters" });
+        return;
+      }
+      previousId.current = activity.id;
+      setStatus({ kind: "ready", activity, chaosFallback: Boolean(res.data.chaosFallback) });
     },
-    [filters, loadPool],
+    [filters],
   );
 
   const generateAndReveal = async (f: ActivityFilters = filters) => {

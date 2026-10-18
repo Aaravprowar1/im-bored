@@ -7,6 +7,7 @@ import {
   type Location,
   type PeopleType,
 } from "./types";
+import { LIBRARY_ACTIVITIES } from "./library";
 
 /**
  * Hand-curated seed activities. Each slug is the stable key used by the seed
@@ -18,6 +19,7 @@ export interface SeedActivity {
   title: string;
   description: string;
   category: Category;
+  secondary_category: Category | null;
   duration_minutes: number;
   difficulty: Difficulty;
   location: Location;
@@ -251,12 +253,14 @@ export const VIDEO_QUERIES: Record<string, string> = {
   "password-check": "how to set up two factor authentication",
 };
 
-export const SEED_ACTIVITIES: SeedActivity[] = rows.map(
+/** The hand-picked starter set. Tests that need a small database seed only these. */
+export const BASE_ACTIVITIES: SeedActivity[] = rows.map(
   ([slug, title, description, category, minutes, difficulty, location, energy, cost, people, flags]) => ({
     slug,
     title,
     description,
     category,
+    secondary_category: null,
     duration_minutes: minutes,
     difficulty,
     location,
@@ -270,3 +274,6 @@ export const SEED_ACTIVITIES: SeedActivity[] = rows.map(
     video_query: VIDEO_QUERIES[slug] ?? null,
   }),
 );
+
+/** Every seed activity: the starter set plus the big library in ./library. */
+export const SEED_ACTIVITIES: SeedActivity[] = [...BASE_ACTIVITIES, ...LIBRARY_ACTIVITIES];

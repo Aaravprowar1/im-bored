@@ -40,6 +40,8 @@ export interface Activity {
   title: string;
   description: string;
   category: Category;
+  /** Optional second category; the activity shows under both. */
+  secondary_category: Category | null;
   duration_minutes: number;
   difficulty: Difficulty;
   location: Location;
@@ -66,6 +68,7 @@ export type PublicActivity = Pick<
   | "title"
   | "description"
   | "category"
+  | "secondary_category"
   | "duration_minutes"
   | "difficulty"
   | "location"
@@ -82,7 +85,7 @@ export type PublicActivity = Pick<
 >;
 
 export const PUBLIC_ACTIVITY_COLUMNS =
-  "id,title,description,category,duration_minutes,difficulty,location,energy_level,cost_type,people_type,xp_reward,is_chaos,is_featured,safety_note,upvotes,downvotes,video_query" as const;
+  "id,title,description,category,secondary_category,duration_minutes,difficulty,location,energy_level,cost_type,people_type,xp_reward,is_chaos,is_featured,safety_note,upvotes,downvotes,video_query" as const;
 
 export const CATEGORY_LABELS: Record<Category, string> = {
   creative: "Creative",

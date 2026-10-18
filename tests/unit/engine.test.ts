@@ -12,6 +12,7 @@ function make(id: string, patch: Partial<A> = {}): A {
     title: `Activity ${id}`,
     description: "Do a thing for a while.",
     category: "creative",
+    secondary_category: null,
     duration_minutes: 10,
     difficulty: "easy",
     location: "indoors",
@@ -186,5 +187,15 @@ describe("vote weighting", () => {
     }
     expect(lovedCount / 4000).toBeGreaterThan(0.78);
     expect(lovedCount / 4000).toBeLessThan(0.92);
+  });
+});
+
+describe("two categories", () => {
+  it("an activity with a second category matches either category filter", () => {
+    const both = make("both", { category: "music", secondary_category: "social" });
+    const base = { maxMinutes: null, location: "any", energy: "any", cost: "any", chaos: false } as const;
+    expect(filterActivities([both], { ...base, category: "music" })).toHaveLength(1);
+    expect(filterActivities([both], { ...base, category: "social" })).toHaveLength(1);
+    expect(filterActivities([both], { ...base, category: "learn" })).toHaveLength(0);
   });
 });

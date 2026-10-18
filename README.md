@@ -8,7 +8,8 @@ Built with Next.js 16 (App Router), React 19, TypeScript (strict), Tailwind CSS 
 - Accounts add XP, levels, streaks, synced favourites, the daily challenge bonus and the leaderboard.
 - Anyone signed in can suggest an activity for free. A moderator approves, rejects or requests changes.
 - Signed-in users can vote any activity up or down. Votes make well-liked activities come up more often in the generator.
-- Activities that teach a skill (38 of them, like tying a knot or juggling) show a popular YouTube tutorial.
+- More than 10,000 activities, at least 900 in each of the 11 categories, spread across every time, place, energy and cost filter.
+- Activities that teach a skill (over 2,000 of them, like tying a knot or juggling) show a popular YouTube tutorial.
 
 ## Status: what works and what needs configuring
 
@@ -45,16 +46,18 @@ Useful scripts:
 | `npm test` | Vitest: engine, vote weighting, validation, route handlers, components, and the SQL migrations in PGlite |
 | `npm run test:e2e` | Playwright against a production build (run `npm run build` first) on desktop and mobile |
 | `npm run check` | typecheck + lint + unit tests |
-| `npm run db:seed` | Upserts the 130 seed activities via the Supabase API (service role) |
-| `npm run db:seed-sql` | Regenerates `supabase/seed.sql` from `src/lib/activities/seed-data.ts` |
+| `npm run db:seed` | Upserts every seed activity via the Supabase API (service role), 500 at a time |
+| `npm run db:seed-sql` | Regenerates `supabase/seed.sql` from `src/lib/activities/seed-data.ts` and the library |
+| `npx tsx scripts/check-library.ts` | Checks the activity library for format errors, duplicates, unsafe wording and filter gaps |
+| `npx tsx scripts/generate-library-index.ts` | Rebuilds `src/lib/activities/library/index.ts` after adding a library file |
 
 Playwright uses the Chromium that ships with `@playwright/test@1.56.1`. If you don't have it, run `npx playwright install chromium`.
 
 ## Configure Supabase
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. **Run the migrations, in order.** Either paste each file in `supabase/migrations/` into the SQL editor and run it (`20261009000000_init.sql`, then `20261015000000_free_submissions_and_votes.sql`, then `20261017000000_skill_videos.sql`), or with the Supabase CLI: `supabase link --project-ref <ref>` then `supabase db push`. If you already ran some of them, run only the newer ones, then re-run the seed (step 3) so skill activities get their video searches.
-3. **Seed activities.** Run `supabase/seed.sql` in the SQL editor, or set the env vars and run `npm run db:seed`. Both are idempotent (upsert on `slug`).
+2. **Run the migrations, in order.** Either paste each file in `supabase/migrations/` into the SQL editor and run it (`20261009000000_init.sql`, then `20261015000000_free_submissions_and_votes.sql`, then `20261017000000_skill_videos.sql`, then `20261017100000_random_pick.sql`), or with the Supabase CLI: `supabase link --project-ref <ref>` then `supabase db push`. If you already ran some of them, run only the newer ones, then re-run the seed (step 3) so skill activities get their video searches.
+3. **Seed activities.** Set the env vars and run `npm run db:seed` (recommended), or run `supabase/seed.sql` with `psql` or the SQL editor. The file is about 3 MB, which can be too big to paste into the editor. Both are idempotent (upsert on `slug`).
 4. **Environment variables** (Project settings → API): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and the server-only `SUPABASE_SERVICE_ROLE_KEY`.
 5. **Auth settings** (Authentication → URL configuration): set Site URL to your `NEXT_PUBLIC_SITE_URL`, and add `http://localhost:3000/auth/callback` and `https://<your-domain>/auth/callback` to the redirect allow list.
 6. **Email:** keep "Confirm email" on (recommended). Set up custom SMTP before launch; Supabase's default sender is heavily rate-limited. Confirmation and reset links use the PKCE code flow through `/auth/callback`. If you customise email templates to use token hashes, point them at `/auth/confirm?token_hash={{ .TokenHash }}&type=<type>`.
@@ -84,6 +87,7 @@ src/app/                  Pages and route handlers (App Router)
                           votes, leaderboard, submissions, admin)
 src/components/           UI (ui/ primitives, activity explorer, panels, forms, admin)
 src/lib/activities/       Types/enums, seed data, filter parsing, pure selection engine, repository
+  library/                The big activity library (one line per activity) and its checks
 src/lib/submissions/      Moderation state machine, safety screen, types
 src/lib/videos/           YouTube tutorial lookup (most-viewed relevant video)
 src/lib/supabase/         Separate browser, server (SSR cookies) and service-role clients
@@ -101,8 +105,16 @@ e2e/                      Playwright
 - **Chaos Mode** narrows the pool to chaos activities that match every other filter. If none match, it falls back to a regular activity and says so. It never bypasses filters or publication status. The setting lasts for the browser tab's session.
 - The previous activity is excluded whenever another choice exists.
 - **Votes weight the pick.** Each activity's weight is `0.2 + (up + 1) / (up + down + 2)`: an unrated activity is 0.7, a well-loved one approaches 1.2 and a disliked one approaches 0.2. So loved activities come up up to six times as often as disliked ones, but nothing disappears because of votes alone. Admins can sort activities by "most downvoted" in `/admin/activities` and archive any that should go.
-- The browser fetches the eligible pool once per filter combination (`GET /api/activities`, filtered in SQL, published rows only, max 500) and picks locally, so repeat clicks cost no requests. `GET /api/activities/random` does the same server-side.
+- Each click asks `GET /api/activities/random` for one activity. In the database this runs `pick_random_activity()`, which applies the filters, Chaos Mode, the no-repeat rule and the vote weighting in SQL and returns a single row, so it stays fast with tens of thousands of activities. Without Supabase the same engine runs over the bundled list.
+- An activity can have a second category (`secondary_category`) and shows up under either category filter.
 - Pools are not cached by a CDN, so archiving takes effect on the next pool load; completion re-checks publication status in the database.
+
+### Activity library
+
+- `src/lib/activities/seed-data.ts` holds the hand-picked starter set. `src/lib/activities/library/` holds the rest, one file per category (or per pair of categories, named like `music+social-1.ts`), one activity per line:
+  `Title | Description | minutes | difficulty | location | energy | cost | people | flags`
+  where flags are `;`-separated: `chaos`, `safety: …`, `video: …`. `parse.ts` explains the format; slugs come from the categories and title, so archive an activity rather than renaming it.
+- `npx tsx scripts/check-library.ts` and the unit tests check that every line parses, no two activities share title words or most of their description anywhere in the library, everything passes the submission safety screen, and every category has at least 900 activities with something for each sensible filter combination.
 
 ### XP, levels and streaks
 
@@ -123,8 +135,8 @@ e2e/                      Playwright
 
 ### YouTube tutorials
 
-- Skill activities have a `video_query` (set in `VIDEO_QUERIES` in `src/lib/activities/seed-data.ts`), such as "how to tie a bowline knot".
-- `GET /api/activities/<id>/video` reads the search from the activity row (never from the request). With `YOUTUBE_API_KEY` set, it asks the YouTube Data API for the 10 most relevant embeddable, safe-search videos and returns the one with the most views. Results are cached for a day, which keeps quota use to about one search per skill activity per day (each search costs 101 of the free 10,000 daily units).
+- Skill activities have a `video_query` (set in `VIDEO_QUERIES` in `src/lib/activities/seed-data.ts`, or with a `video:` flag in the library files), such as "how to tie a bowline knot".
+- `GET /api/activities/<id>/video` reads the search from the activity row (never from the request). With `YOUTUBE_API_KEY` set, it asks the YouTube Data API for the 10 most relevant embeddable, safe-search videos and returns the one with the most views. Results are cached for a day, so only skill activities someone actually opens use quota. Each lookup costs 101 of the free 10,000 daily units, about 99 lookups a day; a busy site should ask Google for more quota.
 - Without a key, or if YouTube fails, the card links to YouTube's results for the same search sorted by view count.
 - The card shows the thumbnail, title, channel and view count. The video only loads (from `youtube-nocookie.com`) when someone presses play.
 - To get a key: in the [Google Cloud console](https://console.cloud.google.com/), create a project, enable "YouTube Data API v3", then create an API key under APIs & Services → Credentials. Restrict it to that API. Add it as `YOUTUBE_API_KEY` (server only).
@@ -171,7 +183,7 @@ None. The app doesn't send any data to analytics providers. If you add analytics
 
 ## Testing
 
-- `npm test` runs 98 tests: the generator (filters, Chaos Mode, no repeats, unpublished never returned, vote weighting), YouTube tutorial lookup and fallback, validation and safety screening, XP/streak/daily rules, route-handler authorization (unauthenticated, non-admin, other users' resources, client-supplied ids and statuses ignored), vote buttons (guest prompt, switching, rollback), and the real migrations in PGlite (RLS, grants, idempotent completions, free submissions, moderation, vote counts, rate limits).
+- `npm test` runs 115 tests: the activity library (900+ per category, no duplicates, safety screen, filter coverage), the generator (filters, Chaos Mode, no repeats, unpublished never returned, vote weighting), YouTube tutorial lookup and fallback, validation and safety screening, XP/streak/daily rules, route-handler authorization (unauthenticated, non-admin, other users' resources, client-supplied ids and statuses ignored), vote buttons (guest prompt, switching, rollback), and the real migrations in PGlite (RLS, grants, idempotent completions, free submissions, moderation, vote counts, rate limits).
 - `npm run build && npm run test:e2e` runs 48 Playwright tests on desktop and mobile in development mode: generation, combined filters, empty state and reset, Chaos Mode, vote buttons, YouTube links, guest favourites, keyboard use, no horizontal overflow on every page at 320–1440 px, honest unconfigured states, and protected routes.
 - PGlite runs requests one at a time, so "concurrent" completion and vote tests prove the constraints and counting rather than true parallel transactions. The guarantees rely on those constraints and on row locks in the SQL functions.
 

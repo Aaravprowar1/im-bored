@@ -37,7 +37,7 @@ export default async function ChallengesPage({ searchParams }: { searchParams: S
   } catch {
     featuredError = true;
   }
-  const visible = featured.filter((a) => (!category || a.category === category) && (!difficulty || a.difficulty === difficulty));
+  const visible = featured.filter((a) => (!category || a.category === category || a.secondary_category === category) && (!difficulty || a.difficulty === difficulty));
 
   let completedIds = new Set<string>();
   if (supabase && user && visible.length) {
