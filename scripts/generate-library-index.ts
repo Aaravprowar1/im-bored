@@ -11,7 +11,7 @@ const dir = join(process.cwd(), "src/lib/activities/library");
 const files = readdirSync(dir)
   .filter((f) => /^[a-z]+(\+[a-z]+)?-\d+\.ts$/.test(f))
   .filter((f) => process.argv.length <= 2 || process.argv.slice(2).includes(f.replace(/\.ts$/, "")))
-  .sort();
+  .sort((a, b) => Number(a.includes("+")) - Number(b.includes("+")) || a.localeCompare(b));
 
 const name = (f: string) => f.replace(/\.ts$/, "").replace(/[+-]/g, "_");
 const lines = [

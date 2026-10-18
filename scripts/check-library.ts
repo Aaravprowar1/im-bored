@@ -14,7 +14,13 @@ import { CATEGORIES, type Category } from "../src/lib/activities/types";
 import type { SeedActivity } from "../src/lib/activities/seed-data";
 
 const dir = join(process.cwd(), "src/lib/activities/library");
-const files = readdirSync(dir).filter((f) => /^[a-z]+(\+[a-z]+)?-\d+\.ts$/.test(f)).sort();
+// Files already in the generated index come first, then single categories, then
+// pairs, so a duplicate is always reported against the newer, unpublished file.
+const published = new Set([...readFileSync(join(dir, "index.ts"), "utf8").matchAll(/from "\.\/([^"]+)"/g)].map((m) => `${m[1]}.ts`));
+const rank = (f: string) => (published.has(f) ? 0 : f.includes("+") ? 2 : 1);
+const files = readdirSync(dir)
+  .filter((f) => /^[a-z]+(\+[a-z]+)?-\d+\.ts$/.test(f))
+  .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 const wanted = new Set(process.argv.slice(2).map((f) => f.replace(/\.ts$/, "")));
 
 const all: SeedActivity[] = [...BASE_ACTIVITIES];

@@ -23,6 +23,15 @@ import productivity_1 from "./productivity-1";
 import productivity_2 from "./productivity-2";
 import social_1 from "./social-1";
 import social_2 from "./social-2";
+import brain_indoors_1 from "./brain+indoors-1";
+import brain_outdoors_1 from "./brain+outdoors-1";
+import brain_physical_1 from "./brain+physical-1";
+import creative_gaming_1 from "./creative+gaming-1";
+import creative_learn_1 from "./creative+learn-1";
+import creative_mischief_1 from "./creative+mischief-1";
+import creative_outdoors_1 from "./creative+outdoors-1";
+import creative_physical_1 from "./creative+physical-1";
+import creative_productivity_1 from "./creative+productivity-1";
 
 const FILES: [string, string][] = [
   ["brain-1", brain_1],
@@ -47,6 +56,15 @@ const FILES: [string, string][] = [
   ["productivity-2", productivity_2],
   ["social-1", social_1],
   ["social-2", social_2],
+  ["brain+indoors-1", brain_indoors_1],
+  ["brain+outdoors-1", brain_outdoors_1],
+  ["brain+physical-1", brain_physical_1],
+  ["creative+gaming-1", creative_gaming_1],
+  ["creative+learn-1", creative_learn_1],
+  ["creative+mischief-1", creative_mischief_1],
+  ["creative+outdoors-1", creative_outdoors_1],
+  ["creative+physical-1", creative_physical_1],
+  ["creative+productivity-1", creative_productivity_1],
 ];
 
 export const LIBRARY_ACTIVITIES: SeedActivity[] = FILES.flatMap(([file, text]) => {
