@@ -8,7 +8,7 @@ Built with Next.js 16 (App Router), React 19, TypeScript (strict), Tailwind CSS 
 - Accounts add XP, levels, streaks, synced favourites, the daily challenge bonus and the leaderboard.
 - Anyone signed in can suggest an activity for free. A moderator approves, rejects or requests changes.
 - Signed-in users can vote any activity up or down. Votes make well-liked activities come up more often in the generator.
-- More than 18,000 activities: at least 900 in each of the 11 categories, plus 900 or more for each finished pair of categories (an activity in a pair shows under both), spread across every time, place, energy and cost filter.
+- More than 28,000 activities: at least 900 in each of the 11 categories, plus 900 or more for each finished pair of categories (an activity in a pair shows under both), spread across every time, place, energy and cost filter.
 - Activities that teach a skill (over 3,000 of them, like tying a knot or juggling) show a popular YouTube tutorial.
 
 ## Status: what works and what needs configuring

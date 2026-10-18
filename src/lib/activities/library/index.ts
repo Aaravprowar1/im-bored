@@ -23,15 +23,26 @@ import productivity_1 from "./productivity-1";
 import productivity_2 from "./productivity-2";
 import social_1 from "./social-1";
 import social_2 from "./social-2";
+import brain_gaming_1 from "./brain+gaming-1";
 import brain_indoors_1 from "./brain+indoors-1";
+import brain_learn_1 from "./brain+learn-1";
+import brain_mischief_1 from "./brain+mischief-1";
+import brain_music_1 from "./brain+music-1";
 import brain_outdoors_1 from "./brain+outdoors-1";
 import brain_physical_1 from "./brain+physical-1";
+import brain_productivity_1 from "./brain+productivity-1";
+import brain_social_1 from "./brain+social-1";
+import creative_brain_1 from "./creative+brain-1";
 import creative_gaming_1 from "./creative+gaming-1";
+import creative_indoors_1 from "./creative+indoors-1";
 import creative_learn_1 from "./creative+learn-1";
 import creative_mischief_1 from "./creative+mischief-1";
+import creative_music_1 from "./creative+music-1";
 import creative_outdoors_1 from "./creative+outdoors-1";
 import creative_physical_1 from "./creative+physical-1";
 import creative_productivity_1 from "./creative+productivity-1";
+import creative_social_1 from "./creative+social-1";
+import physical_outdoors_1 from "./physical+outdoors-1";
 
 const FILES: [string, string][] = [
   ["brain-1", brain_1],
@@ -56,15 +67,26 @@ const FILES: [string, string][] = [
   ["productivity-2", productivity_2],
   ["social-1", social_1],
   ["social-2", social_2],
+  ["brain+gaming-1", brain_gaming_1],
   ["brain+indoors-1", brain_indoors_1],
+  ["brain+learn-1", brain_learn_1],
+  ["brain+mischief-1", brain_mischief_1],
+  ["brain+music-1", brain_music_1],
   ["brain+outdoors-1", brain_outdoors_1],
   ["brain+physical-1", brain_physical_1],
+  ["brain+productivity-1", brain_productivity_1],
+  ["brain+social-1", brain_social_1],
+  ["creative+brain-1", creative_brain_1],
   ["creative+gaming-1", creative_gaming_1],
+  ["creative+indoors-1", creative_indoors_1],
   ["creative+learn-1", creative_learn_1],
   ["creative+mischief-1", creative_mischief_1],
+  ["creative+music-1", creative_music_1],
   ["creative+outdoors-1", creative_outdoors_1],
   ["creative+physical-1", creative_physical_1],
   ["creative+productivity-1", creative_productivity_1],
+  ["creative+social-1", creative_social_1],
+  ["physical+outdoors-1", physical_outdoors_1],
 ];
 
 export const LIBRARY_ACTIVITIES: SeedActivity[] = FILES.flatMap(([file, text]) => {
