@@ -42,11 +42,19 @@ import creative_outdoors_1 from "./creative+outdoors-1";
 import creative_physical_1 from "./creative+physical-1";
 import creative_productivity_1 from "./creative+productivity-1";
 import creative_social_1 from "./creative+social-1";
+import gaming_learn_1 from "./gaming+learn-1";
+import gaming_mischief_1 from "./gaming+mischief-1";
+import gaming_music_1 from "./gaming+music-1";
+import gaming_productivity_1 from "./gaming+productivity-1";
 import indoors_gaming_1 from "./indoors+gaming-1";
 import indoors_learn_1 from "./indoors+learn-1";
 import indoors_mischief_1 from "./indoors+mischief-1";
 import indoors_music_1 from "./indoors+music-1";
+import indoors_productivity_1 from "./indoors+productivity-1";
 import indoors_social_1 from "./indoors+social-1";
+import learn_music_1 from "./learn+music-1";
+import learn_productivity_1 from "./learn+productivity-1";
+import learn_social_1 from "./learn+social-1";
 import outdoors_gaming_1 from "./outdoors+gaming-1";
 import outdoors_indoors_1 from "./outdoors+indoors-1";
 import outdoors_learn_1 from "./outdoors+learn-1";
@@ -105,11 +113,19 @@ const FILES: [string, string][] = [
   ["creative+physical-1", creative_physical_1],
   ["creative+productivity-1", creative_productivity_1],
   ["creative+social-1", creative_social_1],
+  ["gaming+learn-1", gaming_learn_1],
+  ["gaming+mischief-1", gaming_mischief_1],
+  ["gaming+music-1", gaming_music_1],
+  ["gaming+productivity-1", gaming_productivity_1],
   ["indoors+gaming-1", indoors_gaming_1],
   ["indoors+learn-1", indoors_learn_1],
   ["indoors+mischief-1", indoors_mischief_1],
   ["indoors+music-1", indoors_music_1],
+  ["indoors+productivity-1", indoors_productivity_1],
   ["indoors+social-1", indoors_social_1],
+  ["learn+music-1", learn_music_1],
+  ["learn+productivity-1", learn_productivity_1],
+  ["learn+social-1", learn_social_1],
   ["outdoors+gaming-1", outdoors_gaming_1],
   ["outdoors+indoors-1", outdoors_indoors_1],
   ["outdoors+learn-1", outdoors_learn_1],
