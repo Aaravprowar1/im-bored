@@ -42,7 +42,20 @@ import creative_outdoors_1 from "./creative+outdoors-1";
 import creative_physical_1 from "./creative+physical-1";
 import creative_productivity_1 from "./creative+productivity-1";
 import creative_social_1 from "./creative+social-1";
+import outdoors_gaming_1 from "./outdoors+gaming-1";
+import outdoors_indoors_1 from "./outdoors+indoors-1";
+import outdoors_learn_1 from "./outdoors+learn-1";
+import outdoors_mischief_1 from "./outdoors+mischief-1";
+import outdoors_productivity_1 from "./outdoors+productivity-1";
+import outdoors_social_1 from "./outdoors+social-1";
+import physical_gaming_1 from "./physical+gaming-1";
+import physical_indoors_1 from "./physical+indoors-1";
+import physical_learn_1 from "./physical+learn-1";
+import physical_mischief_1 from "./physical+mischief-1";
+import physical_music_1 from "./physical+music-1";
 import physical_outdoors_1 from "./physical+outdoors-1";
+import physical_productivity_1 from "./physical+productivity-1";
+import physical_social_1 from "./physical+social-1";
 
 const FILES: [string, string][] = [
   ["brain-1", brain_1],
@@ -86,7 +99,20 @@ const FILES: [string, string][] = [
   ["creative+physical-1", creative_physical_1],
   ["creative+productivity-1", creative_productivity_1],
   ["creative+social-1", creative_social_1],
+  ["outdoors+gaming-1", outdoors_gaming_1],
+  ["outdoors+indoors-1", outdoors_indoors_1],
+  ["outdoors+learn-1", outdoors_learn_1],
+  ["outdoors+mischief-1", outdoors_mischief_1],
+  ["outdoors+productivity-1", outdoors_productivity_1],
+  ["outdoors+social-1", outdoors_social_1],
+  ["physical+gaming-1", physical_gaming_1],
+  ["physical+indoors-1", physical_indoors_1],
+  ["physical+learn-1", physical_learn_1],
+  ["physical+mischief-1", physical_mischief_1],
+  ["physical+music-1", physical_music_1],
   ["physical+outdoors-1", physical_outdoors_1],
+  ["physical+productivity-1", physical_productivity_1],
+  ["physical+social-1", physical_social_1],
 ];
 
 export const LIBRARY_ACTIVITIES: SeedActivity[] = FILES.flatMap(([file, text]) => {

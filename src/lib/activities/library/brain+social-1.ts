@@ -492,13 +492,11 @@ Sign language quiz | Learn ten signs from a beginner sign language video and qui
 Semaphore message game | Learn semaphore flags with tea towels and send a short message across the garden to a friend. | 30 | medium | outdoors | medium | free | with_friends | video: semaphore alphabet tutorial
 Torch Morse across the street | Send a Morse message by torch from your window to a friend's at night. Take turns sending and decoding. | 20 | medium | indoors | medium | free | with_friends
 Whistle code | Invent a whistle code with a friend for a short walk, like two blasts for stop. See how complex a message you can send. | 15 | easy | outdoors | medium | free | with_friends
-Dance cipher | Invent a dance move for each letter and spell a word for friends to decode. | 15 | medium | anywhere | high | free | either | chaos
 Tic-tac-toe-grid code notes for family | Learn the pigpen cipher and leave coded notes around the house for family. Ask them to decode and reply. | 20 | easy | indoors | medium | free | either | video: pigpen cipher tutorial
 Caesar shift chalk messages | Chalk a Caesar-shifted message on the patio for a housemate to decode. Change the shift every day. | 10 | easy | outdoors | medium | free | alone
 First-letter song list secret | Create a playlist where the first letters of the songs spell a message. Share it with a friend to decode. | 30 | medium | computer | low | free | alone
 Acrostic letter | Write a letter to a friend where the first letter of each line spells a hidden message. See if they notice. | 20 | easy | anywhere | low | free | alone
 Invisible ink letter | Write a secret message in lemon juice and send it to a friend with a clue about heat. They reveal it with a warm iron. | 20 | easy | indoors | low | free | alone | safety: An adult should help with the iron.
-Book cipher with a friend | Agree on a book you both own and send messages as page, line and word numbers. Decode each other's. | 30 | medium | anywhere | low | free | either
 Treasure in a time capsule | With friends, write puzzles to be solved in five years and bury them in a box. Each person writes predictions too. | 60 | easy | outdoors | medium | free | with_friends
 Escape room for your parents | Design a small escape room in a spare room for your parents or grandparents. Watch and give hints when they ask. | 120 | hard | indoors | medium | free | alone
 Kitchen escape puzzle | Lock dessert away with a padlock and set three kitchen-themed puzzles to get the code. Let dinner guests solve it. | 60 | medium | indoors | medium | paid | alone
