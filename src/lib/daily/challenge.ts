@@ -25,7 +25,7 @@ export const LOCAL_DAILY_BONUS_XP = 25;
 export async function getTodaysChallenge(supabase: ServerSupabase | null): Promise<DailyChallenge | null> {
   if (!supabase) {
     const today = utcDateString();
-    const pick = pickForDate(localPool().filter((a) => !a.is_chaos), today, (a) => a.id);
+    const pick = pickForDate((await localPool()).filter((a) => !a.is_chaos), today, (a) => a.id);
     if (!pick) return null;
     return {
       id: `local-${today}`,
